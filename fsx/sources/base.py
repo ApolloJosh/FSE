@@ -29,22 +29,32 @@ class HTTPSource:
 
     name = "source"
     env_var = ""
+    token_env_var = ""     # optional bearer token, preferred when present
     base_url = ""
     min_interval = 0.0     # seconds between requests
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, token: Optional[str] = None):
         self.api_key = api_key or os.environ.get(self.env_var, "")
+        self.token = token or (os.environ.get(self.token_env_var, "")
+                               if self.token_env_var else "")
         self.cache = Cache(self.name)
         self._last_call = 0.0
 
     @property
     def available(self) -> bool:
-        return bool(self.api_key)
+        return bool(self.token or self.api_key)
+
+    @property
+    def headers(self) -> dict[str, str]:
+        return {"Authorization": f"Bearer {self.token}"} if self.token else {}
 
     def require_key(self) -> None:
         if not self.available:
+            wanted = self.env_var
+            if self.token_env_var:
+                wanted += f" or {self.token_env_var}"
             raise MissingKey(
-                f"{self.name} needs {self.env_var}. Copy .env.example to .env and add it."
+                f"{self.name} needs {wanted}. Copy .env.example to .env and add it."
             )
 
     def _throttle(self) -> None:
@@ -61,10 +71,11 @@ class HTTPSource:
 
         self.require_key()
         self._throttle()
-        response = requests.get(f"{self.base_url}{path}", params=params, timeout=20)
+        url = f"{self.base_url}{path}"
+        response = requests.get(url, params=params, headers=self.headers, timeout=20)
         if response.status_code == 429:
             time.sleep(2.0)
-            response = requests.get(f"{self.base_url}{path}", params=params, timeout=20)
+            response = requests.get(url, params=params, headers=self.headers, timeout=20)
         response.raise_for_status()
 
         payload = response.json()

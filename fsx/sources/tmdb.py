@@ -29,24 +29,31 @@ def _parse_date(value: Optional[str]) -> Optional[date]:
 class TMDB(HTTPSource):
     name = "tmdb"
     env_var = "TMDB_API_KEY"
+    token_env_var = "TMDB_READ_ACCESS_TOKEN"
     base_url = "https://api.themoviedb.org/3"
     min_interval = 0.26          # ~40 requests / 10s with headroom
 
+    @property
+    def auth(self) -> dict[str, str]:
+        """v4 bearer auth is what TMDB prefers; the v3 key still works as a
+        query parameter. When a token is present the key is left out entirely."""
+        return {} if self.token else {"api_key": self.api_key}
+
     def search_person(self, name: str) -> Optional[dict[str, Any]]:
-        data = self.get("/search/person", {"api_key": self.api_key, "query": name},
+        data = self.get("/search/person", {**self.auth, "query": name},
                         f"search:{name.lower()}")
         results = data.get("results") or []
         return results[0] if results else None
 
     def person_credits(self, person_id: int) -> dict[str, Any]:
         return self.get(f"/person/{person_id}/movie_credits",
-                        {"api_key": self.api_key}, f"credits:{person_id}")
+                        dict(self.auth), f"credits:{person_id}")
 
     def movie(self, movie_id: int) -> dict[str, Any]:
-        return self.get(f"/movie/{movie_id}", {"api_key": self.api_key}, f"movie:{movie_id}")
+        return self.get(f"/movie/{movie_id}", dict(self.auth), f"movie:{movie_id}")
 
     def movie_cast_size(self, movie_id: int) -> int:
-        data = self.get(f"/movie/{movie_id}/credits", {"api_key": self.api_key},
+        data = self.get(f"/movie/{movie_id}/credits", dict(self.auth),
                         f"cast:{movie_id}")
         return min(len(data.get("cast") or []), PRINCIPAL_CAST) or PRINCIPAL_CAST
 
