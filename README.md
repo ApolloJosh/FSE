@@ -69,22 +69,36 @@ scripts/
 
 ## What the data actually looks like
 
-| Data | Source | Status |
-| --- | --- | --- |
-| People, credits, billing, budget, gross | TMDB | Free for non-commercial; commercial negotiated |
-| IMDb rating and votes, Metascore, RT Tomatometer | OMDb | $1+/month Patreon lifts the 1,000/day cap |
-| RT Audience Score | — | Not obtainable |
-| Letterboxd | — | Declined for this use case |
-| Awards | Wikidata + manual | No free API is good enough |
+Measured, not assumed. Coverage figures come from sampling one actor's 75-film
+filmography on Wikidata and 15 recent films on Wikipedia.
 
-The Reception Score is built to run on three of five sources, so launching on
-IMDb, Metascore and RT Tomatometer is the intended configuration, not a degraded
-one. RT Audience and Letterboxd are config changes plus a backfill if either is
-ever licensed.
+| Data | Source | Coverage | Cost |
+| --- | --- | --- | --- |
+| People, credits, **billing order** | TMDB | full | free / negotiated |
+| Budget and worldwide gross | Wikipedia infobox | 87% / 93% | free |
+| Budget and worldwide gross | TMDB | patchy under ~$10M | free |
+| RT Tomatometer, Metacritic | Wikidata | ~85% have one, RT far more than MC | free |
+| IMDb rating **and vote count** | OMDb | full | $1+/mo lifts the 1,000/day cap |
+| Awards, dated and per-film | Wikidata | rich | free |
+| RT Audience Score | — | none | — |
+| Letterboxd | — | declined for this use case | — |
 
-Awards are **not** fetched by the backfill. Roughly 400 rows a year across the
-ceremonies that matter, entered the morning after each announcement, is the
-honest answer — and it is the one part of the pipeline that must never be wrong.
+**TMDB is the one source with no substitute.** Wikidata carries billing order on
+0% of cast statements, and Wikipedia's `starring` field is the poster billing
+block — a median of 6 names. Neither can tell 13th billed from 20th, and role
+weight is the backbone of every working actor's valuation.
+
+**Wikidata replaces the manual awards entry** the design doc budgeted for. One
+query returned 70 dated award statements for a single actor, linked to the film.
+That was the weakest part of the pipeline and it is now automated.
+
+**OMDb is now optional.** Without it you still get RT and Metacritic from
+Wikidata, but you lose the IMDb rating and its vote count — and the vote count
+is what drives the confidence factor, so every credit scores at reduced
+confidence. You also lose the audience side of the Reception Score entirely:
+RT Tomatometer and Metacritic are both critic measures, so the documented
+40% critic / 40% audience / 20% cinephile split collapses to all-critic.
+Run `--no-omdb` to try it; keep OMDb if you want the split the design assumes.
 
 ## Tuning
 

@@ -45,6 +45,12 @@ class TMDB(HTTPSource):
         results = data.get("results") or []
         return results[0] if results else None
 
+    def person_imdb_id(self, person_id: int) -> Optional[str]:
+        """Needed to resolve the person on Wikidata. Matching on name collides."""
+        data = self.get(f"/person/{person_id}/external_ids", dict(self.auth),
+                        f"ext:{person_id}")
+        return data.get("imdb_id")
+
     def person_credits(self, person_id: int) -> dict[str, Any]:
         return self.get(f"/person/{person_id}/movie_credits",
                         dict(self.auth), f"credits:{person_id}")

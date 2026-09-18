@@ -106,16 +106,29 @@ def cmd_backfill(args) -> int:
     _load_env()
     from .sources.omdb import OMDb
     from .sources.tmdb import TMDB
+    from .sources.wikidata import Wikidata
+    from .sources.wikipedia import Wikipedia
 
-    tmdb, omdb = TMDB(), OMDb()
-    missing = [s.env_var for s in (tmdb, omdb) if not s.available]
-    if missing:
-        print(f"Missing API keys: {', '.join(missing)}", file=sys.stderr)
-        print("Copy .env.example to .env and fill them in, then rerun.", file=sys.stderr)
+    tmdb = TMDB()
+    if not tmdb.available:
+        print("TMDB needs TMDB_READ_ACCESS_TOKEN or TMDB_API_KEY.", file=sys.stderr)
+        print("Copy .env.example to .env and fill one in, then rerun.", file=sys.stderr)
         return 1
 
-    names = [n.strip() for n in Path(args.roster).read_text().splitlines() if n.strip()]
+    omdb = OMDb()
+    if not omdb.available and not args.no_omdb:
+        print("No OMDB_API_KEY: falling back to Wikidata for review scores.",
+              file=sys.stderr)
+        print("That loses the IMDb rating and its vote count, so every credit "
+              "scores at reduced confidence.", file=sys.stderr)
+
+    wikipedia = None if args.no_wiki else Wikipedia()
+    wikidata = None if args.no_wiki else Wikidata()
+
+    names = [n.strip() for n in Path(args.roster).read_text().splitlines()
+             if n.strip() and not n.startswith("#")]
     people: list[Person] = []
+    stats = {"omdb": 0, "wikidata_scores": 0, "wikipedia_money": 0, "awards": 0}
 
     for i, raw in enumerate(names, 1):
         as_director = raw.endswith("*")
@@ -125,10 +138,37 @@ def cmd_backfill(args) -> int:
             person = tmdb.build_person(name, as_director=as_director,
                                        max_credits=args.max_credits)
             if person is None:
-                print(f"    not found on TMDB, skipped", file=sys.stderr)
+                print("    not found on TMDB, skipped", file=sys.stderr)
                 continue
+
             for credit in person.credits:
-                omdb.enrich(credit)
+                if omdb.available and not args.no_omdb:
+                    omdb.enrich(credit)
+                    if credit.imdb is not None:
+                        stats["omdb"] += 1
+
+                imdb_id = getattr(credit, "imdb_id", None)
+                if wikidata and imdb_id and credit.rt_critics is None:
+                    for field, value in wikidata.film_scores(imdb_id).items():
+                        if getattr(credit, field, None) is None:
+                            setattr(credit, field, value)
+                            stats["wikidata_scores"] += 1
+
+                # TMDB's money thins out badly below ~$10M; Wikipedia's infobox
+                # carried a budget for 87% of a sample and a gross for 93%.
+                if wikipedia and (credit.budget is None or credit.worldwide_gross is None):
+                    for field, value in wikipedia.film_money(credit.title).items():
+                        if getattr(credit, field, None) is None:
+                            setattr(credit, field, value)
+                            stats["wikipedia_money"] += 1
+
+            if wikidata and person.tmdb_id:
+                person_imdb = tmdb.person_imdb_id(person.tmdb_id)
+                qid = wikidata.qid_for_imdb(person_imdb) if person_imdb else None
+                if qid:
+                    person.awards = wikidata.awards(qid)
+                    stats["awards"] += len(person.awards)
+
             people.append(person)
         except Exception as exc:                      # noqa: BLE001
             print(f"    failed: {exc}", file=sys.stderr)
@@ -142,8 +182,10 @@ def cmd_backfill(args) -> int:
     print_distribution(values)
     out = write_csv(values, OUT_DIR / "backfill_ranked.csv")
     print(f"\nWrote {out}")
-    print("\nAwards are NOT fetched: no free API is good enough. Load them from "
-          "Wikidata or enter them by hand before trusting these prices.")
+    print(f"\nFilled: {stats['omdb']} credits from OMDb, "
+          f"{stats['wikidata_scores']} scores from Wikidata, "
+          f"{stats['wikipedia_money']} money fields from Wikipedia, "
+          f"{stats['awards']} awards from Wikidata.")
     return 0
 
 
@@ -159,6 +201,10 @@ def main(argv: list[str] | None = None) -> int:
     backfill = sub.add_parser("backfill", help="rank real people from TMDB + OMDb")
     backfill.add_argument("roster", help="text file, one name per line, * for directors")
     backfill.add_argument("--max-credits", type=int, default=60)
+    backfill.add_argument("--no-omdb", action="store_true",
+                          help="skip OMDb; use Wikidata for review scores instead")
+    backfill.add_argument("--no-wiki", action="store_true",
+                          help="skip Wikipedia and Wikidata entirely")
 
     args = parser.parse_args(argv)
     return {"fixtures": cmd_fixtures, "reference": cmd_reference,
