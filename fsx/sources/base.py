@@ -34,9 +34,14 @@ class HTTPSource:
     min_interval = 0.0     # seconds between requests
 
     def __init__(self, api_key: Optional[str] = None, token: Optional[str] = None):
-        self.api_key = api_key or os.environ.get(self.env_var, "")
-        self.token = token or (os.environ.get(self.token_env_var, "")
-                               if self.token_env_var else "")
+        # None means "read the environment"; an explicit "" means "do not use one".
+        self.api_key = (os.environ.get(self.env_var, "") if api_key is None else api_key)
+        if token is not None:
+            self.token = token
+        elif self.token_env_var:
+            self.token = os.environ.get(self.token_env_var, "")
+        else:
+            self.token = ""
         self.cache = Cache(self.name)
         self._last_call = 0.0
 
