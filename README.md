@@ -65,7 +65,7 @@ scaled by the person's role weight in that film:
 | --- | --- |
 | Working points | +160 per credit |
 | Reception | (RS − 50) × 5, so −250 to +250 |
-| Box office | −360 to +660 |
+| Box office | −540 to +1,980, then judged against the reviews |
 | Awards | +60 to +1,350, role weight not applied |
 
 Then two forces pull down: **age decay**, floored so an old Oscar never becomes
@@ -268,3 +268,21 @@ Six Degrees reports itself unavailable, and it is right to. The 25 fixture
 careers give a cast web whose largest connected group is four people. It needs
 the real backfill; its generator is proved against a synthetic dense corpus in
 `tests/test_games.py`.
+
+
+## Box office is judged against the reviews
+
+Money and reviews are not independent signals. Four quadrants:
+
+| | well reviewed | badly reviewed |
+| --- | --- | --- |
+| **made money** | a hit — full credit | a paycheque — 40% of it |
+| **lost money** | art — 15% of the penalty | a flop — the full penalty |
+
+Without this, *Crime 101* ($90M budget, $73M gross, Reception 61) cost Chris
+Hemsworth exactly what *Red Dawn* did, and *Red Dawn* scored 29. *Killers of
+the Flower Moon* and *The Irishman* were being punished like failures. Some
+films are not trying to make money, and the engine now knows the difference.
+
+The modifier ramps rather than steps, so nothing hinges on a film scoring 39
+instead of 41, and a film with no reviews on file is judged neither way.

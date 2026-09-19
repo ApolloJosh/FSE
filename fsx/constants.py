@@ -101,6 +101,23 @@ MIN_GROSS_FOR_POINTS = 5_000_000
 SCALE_LOG_FLOOR = 6.0
 SCALE_LOG_SPAN = 3.0
 BOX_OFFICE_LOCK_DAYS = 120
+
+# Money and reviews are not independent. Four quadrants, not two axes:
+#
+#   lost money, well reviewed   -> art. Barely punished.
+#   lost money, badly reviewed  -> a real flop. Punished in full.
+#   made money, well reviewed   -> a hit. Rewarded in full.
+#   made money, badly reviewed  -> a paycheque. Rewarded a little.
+#
+# Without this, Crime 101 ($90M budget, $73M gross, Reception 61) cost Chris
+# Hemsworth exactly what Red Dawn did (Reception 29) - the engine could not
+# tell a good film that did not sell from a bad film nobody wanted.
+PENALTY_FULL_BELOW_RS = 40.0     # at or under this, a flop is a flop
+PENALTY_MIN_ABOVE_RS = 62.0      # at or over this, the reviews excuse it
+PENALTY_FLOOR = 0.15             # a well-reviewed miss still costs something
+REWARD_MIN_BELOW_RS = 32.0
+REWARD_FULL_ABOVE_RS = 55.0
+REWARD_FLOOR = 0.40              # a bad film that made money still counts, a bit
 # A film can only be punished at the box office if it was actually a bet.
 # Awards-season platform releases routinely gross under break-even by design;
 # scoring those as bombs punished exactly the prestige work the awards engine

@@ -18,6 +18,7 @@ class BoxOfficeResult(NamedTuple):
     bop: float
     scale: float
     basis: str      # theatrical | streaming | none
+    verdict: str = ""       # art | flop | hit | paycheque | break-even
 
 
 def multiple(credit: Credit) -> Optional[float]:
@@ -80,6 +81,36 @@ def evaluate(credit: Credit) -> BoxOfficeResult:
     return BoxOfficeResult(None, 0.0, 1.0, "none")
 
 
+def reception_modifier(points: float, rs: Optional[float]) -> tuple[float, str]:
+    """How much of a box office result the reviews let stand.
+
+    A film that lost money but was liked was probably not trying to make money.
+    A film that made money and was disliked made it anyway. Ramped rather than
+    stepped, so nothing hinges on a film scoring 39 instead of 41.
+    """
+    if rs is None:
+        rs = K.RECEPTION_CENTER          # unknown: treat as average, judge neither way
+
+    if points < 0:
+        span = K.PENALTY_MIN_ABOVE_RS - K.PENALTY_FULL_BELOW_RS
+        t = max(0.0, min(1.0, (rs - K.PENALTY_FULL_BELOW_RS) / span))
+        factor = 1.0 - t * (1.0 - K.PENALTY_FLOOR)
+        return factor, ("art" if t > 0.6 else "flop" if t < 0.2 else "misfire")
+
+    if points > 0:
+        span = K.REWARD_FULL_ABOVE_RS - K.REWARD_MIN_BELOW_RS
+        t = max(0.0, min(1.0, (rs - K.REWARD_MIN_BELOW_RS) / span))
+        factor = K.REWARD_FLOOR + t * (1.0 - K.REWARD_FLOOR)
+        return factor, ("hit" if t > 0.6 else "paycheque" if t < 0.2 else "solid")
+
+    return 1.0, "break-even"
+
+
 def box_office_cp(credit: Credit, weight: float) -> tuple[float, BoxOfficeResult]:
+    from .reception import reception_score
+
     result = evaluate(credit)
+    scored = reception_score(credit)
+    factor, verdict = reception_modifier(result.bop, scored.score if scored else None)
+    result = result._replace(bop=result.bop * factor, verdict=verdict)
     return weight * result.bop * result.scale, result

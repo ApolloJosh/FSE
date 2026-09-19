@@ -167,3 +167,65 @@ def test_a_dated_project_in_production_halves_the_idle_clock():
 def test_the_price_floor_holds():
     assert price_from_cp(0) == pytest.approx(K.PRICE_FLOOR)
     assert price_from_cp(-500) == pytest.approx(K.PRICE_FLOOR)
+
+
+# ------------------------------------------- box office judged against reviews
+def scored(multiple_budget, gross, rs):
+    """A credit with a known multiple and a known Reception Score."""
+    return credit(budget=multiple_budget, worldwide_gross=gross,
+                  reception_override=rs, confidence_override=1.0)
+
+
+def test_a_well_reviewed_film_that_lost_money_is_barely_punished():
+    """Crime 101: $90M budget, $73M gross, Reception 61. It cost Chris
+    Hemsworth exactly what Red Dawn did, and Red Dawn scored 29."""
+    art, _ = boxoffice.box_office_cp(scored(90e6, 73e6, 61), 1.0)
+    flop, _ = boxoffice.box_office_cp(scored(65e6, 45e6, 29), 1.0)
+    assert art < 0 and flop < 0
+    assert abs(art) < abs(flop) * 0.3
+
+
+def test_a_badly_reviewed_film_that_lost_money_is_punished_in_full():
+    cp, result = boxoffice.box_office_cp(scored(70e6, 18e6, 30), 1.0)
+    assert result.verdict == "flop"
+    raw = boxoffice.evaluate(credit(budget=70e6, worldwide_gross=18e6))
+    assert cp == pytest.approx(raw.bop * result.scale, rel=1e-6)
+
+
+def test_a_badly_reviewed_film_that_made_money_earns_less():
+    """The co-worker movie: it made the money, it is not a good film."""
+    good, _ = boxoffice.box_office_cp(scored(20e6, 200e6, 70), 1.0)
+    bad, _ = boxoffice.box_office_cp(scored(20e6, 200e6, 30), 1.0)
+    assert good > bad > 0
+    assert bad < good * 0.5
+
+
+def test_a_well_reviewed_hit_earns_everything():
+    _, result = boxoffice.box_office_cp(scored(200e6, 1400e6, 70), 1.0)
+    assert result.verdict == "hit"
+
+
+def test_the_four_verdicts_are_reachable():
+    cases = {
+        "art": scored(90e6, 73e6, 68),
+        "flop": scored(90e6, 40e6, 28),
+        "hit": scored(50e6, 400e6, 70),
+        "paycheque": scored(20e6, 300e6, 30),
+    }
+    for want, c in cases.items():
+        assert boxoffice.box_office_cp(c, 1.0)[1].verdict == want
+
+
+def test_an_unscored_film_is_judged_neither_way():
+    """No reviews on file means no opinion, not a free pass and not a beating."""
+    c = credit(budget=90e6, worldwide_gross=40e6)          # no reception at all
+    cp, result = boxoffice.box_office_cp(c, 1.0)
+    assert result.verdict in ("flop", "misfire")
+    assert cp < 0
+
+
+def test_the_modifier_ramps_rather_than_steps():
+    """Nothing should hinge on a film scoring 39 instead of 41."""
+    a, _ = boxoffice.reception_modifier(-100, 39.0)
+    b, _ = boxoffice.reception_modifier(-100, 41.0)
+    assert abs(a - b) < 0.12
