@@ -125,3 +125,58 @@ def test_an_archivist_is_a_part_not_archive_footage():
     from fsx.sources.tmdb import appearance_of
     assert appearance_of("Archivist") == "role"
     assert appearance_of("Self (archive footage)") == "archive"
+
+
+def test_one_unreachable_film_does_not_cost_the_whole_person():
+    """A single failed call used to raise out of build_person, the caller
+    logged "no TMDB record", and the person left the market with everything
+    already fetched for them thrown away."""
+    from datetime import date
+
+    from fsx.sources.tmdb import TMDB
+
+    source = TMDB(api_key="k")
+    cast = [{"id": 1, "title": "Good", "character": "Lead", "order": 0,
+             "release_date": "2020-01-01"},
+            {"id": 2, "title": "Broken", "character": "Lead", "order": 0,
+             "release_date": "2019-01-01"},
+            {"id": 3, "title": "Also good", "character": "Lead", "order": 0,
+             "release_date": "2018-01-01"}]
+
+    source.search_person = lambda name: {"id": 7, "name": name}
+    source.person_credits = lambda pid: {"cast": cast}
+    source.release_shape = lambda mid: ("wide", None)
+    source.movie_cast_size = lambda mid: 10
+
+    def movie(mid):
+        if mid == 2:
+            raise RuntimeError("timeout")
+        return {"runtime": 100, "budget": 1, "revenue": 2, "imdb_id": "tt1"}
+    source.movie = movie
+
+    skipped = []
+    person = source.build_person("Someone", on_skip=lambda t, e: skipped.append(t))
+    assert person is not None
+    assert [c.title for c in person.credits] == ["Good", "Also good"]
+    assert skipped == ["Broken"]
+
+
+def test_a_missing_cast_size_is_not_fatal_either():
+    from fsx.sources.tmdb import TMDB
+
+    source = TMDB(api_key="k")
+    source.search_person = lambda name: {"id": 7, "name": name}
+    source.person_credits = lambda pid: {"cast": [
+        {"id": 1, "title": "Film", "character": "Lead", "order": 0,
+         "release_date": "2020-01-01"}]}
+    source.movie = lambda mid: {"runtime": 100, "imdb_id": "tt1"}
+    source.release_shape = lambda mid: ("wide", None)
+
+    def boom(mid):
+        raise RuntimeError("500")
+    source.movie_cast_size = boom
+
+    skipped = []
+    person = source.build_person("Someone", on_skip=lambda t, e: skipped.append(t))
+    assert len(person.credits) == 1 and person.credits[0].cast_size is None
+    assert skipped == ["Film (cast size)"]

@@ -172,7 +172,8 @@ def cmd_backfill(args) -> int:
         print(f"  rough wall time: {(len(names) * args.max_credits * 0.45) / 60:.0f} minutes")
         return 0
     people: list[Person] = []
-    stats = {"omdb": 0, "wikidata_scores": 0, "wikipedia_money": 0, "awards": 0}
+    stats = {"omdb": 0, "wikidata_scores": 0, "wikipedia_money": 0, "awards": 0,
+             "dropped_credits": 0}
 
     def attempt(label: str, fn, *a, **kw):
         """Every external call is individually survivable.
@@ -203,11 +204,23 @@ def cmd_backfill(args) -> int:
             eta = f"  eta {remaining / 60:.0f}m"
         print(f"[{i}/{len(names)}] {name}{eta}", file=sys.stderr)
 
+        dropped: list[str] = []
         person = attempt("tmdb.build_person", tmdb.build_person, name,
-                         as_director=as_director, max_credits=args.max_credits)
+                         as_director=as_director, max_credits=args.max_credits,
+                         on_skip=lambda title, exc: dropped.append(title))
         if person is None:
-            print("    no TMDB record, skipped", file=sys.stderr)
+            # Either TMDB has nobody by that name, or the build itself failed.
+            # Those need different answers from whoever reads this, so they no
+            # longer share a message.
+            print("    not built - TMDB has no such person, or the search "
+                  "call failed. Not listed.", file=sys.stderr)
             continue
+        if dropped:
+            stats["dropped_credits"] += len(dropped)
+            print(f"    {len(dropped)} credits incomplete: "
+                  + ", ".join(dropped[:3])
+                  + (f" and {len(dropped) - 3} more" if len(dropped) > 3 else ""),
+                  file=sys.stderr)
 
         # Awards first: they are the single most valuable input, and they used
         # to sit after the credit loop where a credit failure starved them.
@@ -277,6 +290,10 @@ def cmd_backfill(args) -> int:
           f"{stats['wikidata_scores']} scores from Wikidata, "
           f"{stats['wikipedia_money']} money fields from Wikipedia, "
           f"{stats['awards']} awards from Wikidata.")
+    if stats["dropped_credits"]:
+        print(f"{stats['dropped_credits']} credits were skipped on a failed "
+              f"call. Rerun to fill them - everything else is cached.",
+              file=sys.stderr)
 
     if failures:
         from collections import Counter

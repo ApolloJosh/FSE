@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from ..models import Credit, Person
 from .base import HTTPSource
@@ -116,6 +116,17 @@ class TMDB(HTTPSource):
             release_kind = None
         return release_kind, window
 
+    def _cast_size_or_none(self, movie_id: int, title: str,
+                           on_skip=None) -> Optional[int]:
+        """Cast size drives role weight, and an unknown one already has a
+        sensible default in the classifier. Not worth losing a career over."""
+        try:
+            return self.movie_cast_size(movie_id)
+        except Exception as exc:                              # noqa: BLE001
+            if on_skip:
+                on_skip(f"{title} (cast size)", exc)
+            return None
+
     def movie_cast_size(self, movie_id: int) -> int:
         data = self.get(f"/movie/{movie_id}/credits", dict(self.auth),
                         f"cast:{movie_id}")
@@ -123,9 +134,19 @@ class TMDB(HTTPSource):
 
     # ------------------------------------------------------------------ build
     def build_person(self, name: str, as_director: bool = False,
-                     max_credits: int = 60) -> Optional[Person]:
+                     max_credits: int = 60,
+                     on_skip: Optional[Callable[[str, Exception], None]] = None
+                     ) -> Optional[Person]:
         """Assemble a Person with everything TMDB knows. Review scores are layered
-        on afterwards by the OMDb source, keyed on imdb_id."""
+        on afterwards by the OMDb source, keyed on imdb_id.
+
+        One unreachable film must not cost the whole person. It used to: a
+        single failed call anywhere in the loop raised, the caller logged "no
+        TMDB record, skipped", and that person silently left the market with
+        everything already fetched for them thrown away. Tilda Swinton went
+        missing on a timeout fetching the cast of I Am Love, Javier Bardem on
+        Airbag - 12,000 credits fetched between them and both delisted.
+        """
         found = self.search_person(name)
         if not found:
             return None
@@ -155,7 +176,12 @@ class TMDB(HTTPSource):
             if not released or released > date.today():
                 continue
 
-            detail = self.movie(entry["id"])
+            try:
+                detail = self.movie(entry["id"])
+            except Exception as exc:                          # noqa: BLE001
+                if on_skip:
+                    on_skip(entry.get("title", "?"), exc)
+                continue
             runtime = detail.get("runtime") or 0
 
             credit = Credit(
@@ -163,14 +189,21 @@ class TMDB(HTTPSource):
                 release_date=released,
                 is_director=as_director,
                 billing_order=None if as_director else entry.get("order"),
-                cast_size=None if as_director else self.movie_cast_size(entry["id"]),
+                cast_size=None if as_director else self._cast_size_or_none(
+                    entry["id"], entry.get("title", "?"), on_skip),
                 budget=detail.get("budget") or None,
                 worldwide_gross=detail.get("revenue") or None,
                 appearance=("role" if as_director
                             else appearance_of(entry.get("character"))),
             )
-            credit.release_kind, credit.digital_window_days = \
-                self.release_shape(entry["id"])
+            # These two are enrichment. A film scores without them, so a
+            # failure here costs that detail and nothing else.
+            try:
+                credit.release_kind, credit.digital_window_days = \
+                    self.release_shape(entry["id"])
+            except Exception as exc:                          # noqa: BLE001
+                if on_skip:
+                    on_skip(f"{entry.get('title', '?')} (release dates)", exc)
             credit.tmdb_id = entry["id"]                      # type: ignore[attr-defined]
             credit.imdb_id = detail.get("imdb_id")            # type: ignore[attr-defined]
             credit.runtime_minutes = runtime                  # type: ignore[attr-defined]
