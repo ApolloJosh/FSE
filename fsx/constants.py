@@ -11,7 +11,13 @@ PRICE_COEF = 0.05
 PRICE_EXP = 0.88            # compression: the reason a nom moves a newcomer 171%
 
 # ------------------------------------------------------------- CP components
-WORKING_POINTS = 160.0      # CP per scored credit at role weight 1.0
+# Refitted 2026-09-19 against the real 256-person roster. The original values
+# were fitted to synthetic careers of ~35 credits; real filmographies run to
+# ~58, which made "has a lot of credits" 58% of all value in the market and
+# ranked Kieran Culkin above Tom Cruise. Working points down 160 -> 90, box
+# office ladder x3 (only 45% of credits carry budget data, so it was 7% of
+# value and could not see a box-office star at all).
+WORKING_POINTS = 90.0       # CP per scored credit at role weight 1.0
 RECEPTION_COEF = 5.0        # CP per point of (RS - 50) at role weight 1.0
 DIRECTOR_SCALE = 0.75       # directors take full weight, so scale box+reception
 
@@ -70,18 +76,30 @@ RERATE_THRESHOLD = 8.0       # RS points of drift needed to fire a re-rate
 # ----------------------------------------------------------------- box office
 BREAKEVEN_MULTIPLE = 2.5
 # (upper bound of multiple, BOP in CP at role weight 1.0)
+# Positives x3 against the original fit, negatives only x1.5. Tripling both
+# made four flops fatal: Chris Hemsworth priced at CR 7.66, below 248 other
+# people, because he is a small share of enormous hits (Endgame paid him +146
+# through the ensemble cap) and the lead of modest failures (Crime 101 cost
+# him -580). Bombs should hurt; they should not erase a career.
 BOX_OFFICE_LADDER = [
-    (1.0, -360.0),
-    (1.7, -210.0),
-    (2.5, -90.0),
+    (1.0, -540.0),
+    (1.7, -315.0),
+    (2.5, -135.0),
     (3.5, 0.0),
-    (5.0, 120.0),
-    (8.0, 270.0),
-    (15.0, 450.0),
-    (float("inf"), 660.0),
+    (5.0, 360.0),
+    (8.0, 810.0),
+    (15.0, 1350.0),
+    (float("inf"), 1980.0),
 ]
-SCALE_BASE = 0.5             # S = 0.5 + 0.5 * min(1, log10(gross)/9)
-SCALE_LOG_DIVISOR = 9.0
+# A film has to have been seen by somebody before its multiple means anything.
+# Sean Baker's debut cost $3,000 and took $69,816 - a 23x "phenomenon" that
+# paid like a blockbuster. Below this, box office scores nothing either way.
+MIN_GROSS_FOR_POINTS = 5_000_000
+# S ramps from $1M (0.0) to $1B (1.0) instead of starting at a 0.5 floor, so a
+# film that grossed $70k no longer earns three quarters of a billion-dollar
+# opening's credit.
+SCALE_LOG_FLOOR = 6.0
+SCALE_LOG_SPAN = 3.0
 BOX_OFFICE_LOCK_DAYS = 120
 # A film can only be punished at the box office if it was actually a bet.
 # Awards-season platform releases routinely gross under break-even by design;

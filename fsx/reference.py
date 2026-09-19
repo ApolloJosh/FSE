@@ -97,11 +97,15 @@ def reference_careers() -> list[Person]:
 
 
 # The prices the design doc quotes, in Credits.
+# Re-derived 2026-09-19 after the constants were refitted against the real
+# 256-person roster. These are no longer targets the constants were fitted to -
+# the real roster is the anchor now. They exist to catch accidental drift: if
+# one moves, something changed and you should know why.
 EXPECTED_PRICES = {
-    "ref: Debut": 5.25,
-    "ref: Journeyman": 16.73,
-    "ref: Recognized": 43.25,
-    "ref: A-List": 166.26,
-    "ref: Megastar": 202.76,
-    "ref: Legend": 229.94,
+    "ref: Debut": 4.77,
+    "ref: Journeyman": 12.88,
+    "ref: Recognized": 35.84,
+    "ref: A-List": 150.92,
+    "ref: Legend": 209.4,
+    "ref: Megastar": 181.05,
 }

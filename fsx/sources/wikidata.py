@@ -244,12 +244,28 @@ def _parse_date(value: Optional[str]) -> Optional[date]:
 
 
 def _dedupe(awards: list[Award]) -> list[Award]:
-    """Wikidata often carries the same award twice with different qualifiers."""
-    seen, out = set(), []
+    """Collapse to one statement per award per year.
+
+    Wikidata records a win TWICE: a P1411 "nominated for" dated at the
+    nomination announcement, and a P166 "award received" dated at the ceremony.
+    Keying on the date kept both, so every win was paid its nomination twice -
+    and Best Original Screenplay, which had three statements, three times.
+    155 duplicates across 90 of the 256-person roster, which is what put an
+    11-credit director seventh in the market.
+
+    Nobody wins the same category twice in one year, so (key, year) is the real
+    identity. A win supersedes a nomination and keeps the ceremony date; the
+    two-stage payout still happens, because a winning Award pays its nomination
+    and its win from one statement.
+    """
+    best: dict[tuple[str, int], Award] = {}
     for award in awards:
-        token = (award.key, award.awarded_on, award.won)
-        if token in seen:
-            continue
-        seen.add(token)
-        out.append(award)
-    return out
+        token = (award.key, award.year)
+        current = best.get(token)
+        if current is None:
+            best[token] = award
+        elif award.won and not current.won:
+            best[token] = award
+        elif award.won == current.won and award.awarded_on < current.awarded_on:
+            best[token] = award
+    return sorted(best.values(), key=lambda a: a.awarded_on)

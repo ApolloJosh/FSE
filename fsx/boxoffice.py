@@ -34,11 +34,16 @@ def ladder_points(mult: float) -> float:
 
 
 def scale_factor(gross: Optional[float]) -> float:
-    """Keeps a genuine blockbuster worth more than a lucky micro-budget hit,
-    without erasing the cheapie's win. Deliberately a narrow range."""
+    """Keeps a genuine blockbuster worth more than a lucky micro-budget hit.
+
+    Ramps from $1M (0.0) to $1B (1.0). The previous version started at a 0.5
+    floor, so a film that grossed $70,000 earned 77% of what a billion-dollar
+    opening earned - which is how a $3,000 debut became a phenomenon.
+    """
     if not gross or gross <= 1:
-        return K.SCALE_BASE
-    return K.SCALE_BASE + K.SCALE_BASE * min(1.0, math.log10(gross) / K.SCALE_LOG_DIVISOR)
+        return 0.0
+    ramp = (math.log10(gross) - K.SCALE_LOG_FLOOR) / K.SCALE_LOG_SPAN
+    return max(0.0, min(1.0, ramp))
 
 
 def is_wide_release(credit: Credit) -> bool:
@@ -57,6 +62,9 @@ def evaluate(credit: Credit) -> BoxOfficeResult:
     if mult is not None:
         points = ladder_points(mult)
         if points < 0 and not is_wide_release(credit):
+            points = 0.0
+        # A multiple computed off a tiny gross is noise, not a result.
+        if points > 0 and (credit.worldwide_gross or 0) < K.MIN_GROSS_FOR_POINTS:
             points = 0.0
         return BoxOfficeResult(mult, points, scale_factor(credit.worldwide_gross),
                                "theatrical")

@@ -71,17 +71,17 @@ def test_the_breakout():
                               awards=precursors +
                               [Award("oscar_supporting", 2025, AS_OF, won=True)]), AS_OF)
 
-    assert listing.price == pytest.approx(5.56, rel=TOLERANCE)
-    assert won.price == pytest.approx(44.38, rel=TOLERANCE)
+    assert listing.price == pytest.approx(5.03, rel=TOLERANCE)
+    assert won.price == pytest.approx(43.12, rel=TOLERANCE)
     assert won.price / listing.price - 1 > 6.0       # a 600%+ move
 
 
 def test_conviction_splits_the_same_move_between_two_players():
-    entry, final = 5.56, 44.38
+    entry, final = 5.03, 43.12
     early = held_value(entry, final, days_held_before=800)
     late = held_value(23.70, final, days_held_before=1)
-    assert early == pytest.approx(56.03, rel=TOLERANCE)
-    assert late == pytest.approx(31.97, rel=TOLERANCE)
+    assert early == pytest.approx(54.55, rel=TOLERANCE)
+    assert late == pytest.approx(31.47, rel=TOLERANCE)
     assert early > late
 
 
