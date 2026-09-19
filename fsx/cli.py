@@ -283,6 +283,18 @@ def cmd_backfill(args) -> int:
         tally = Counter(f.split(":")[0] for f in failures)
         print(f"\n{len(failures)} calls failed and were skipped: "
               + ", ".join(f"{k} x{v}" for k, v in tally.most_common()))
+
+    # A person with no awards is usually a failed lookup, not a career without
+    # awards - and it silently underprices them, so say so loudly.
+    awardless = [p.name for p in people if not p.awards]
+    if awardless:
+        share = 100 * len(awardless) / len(people)
+        print(f"\n!! {len(awardless)} of {len(people)} people ({share:.0f}%) have no "
+              f"awards on file.")
+        print("   Some genuinely have none. But a failed Wikidata lookup looks "
+              "identical and\n   underprices them, so rerun to retry: failures are "
+              "never cached, so a rerun\n   only repeats what did not work.")
+        print("   e.g. " + ", ".join(awardless[:6]))
     return 0
 
 

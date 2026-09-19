@@ -75,9 +75,20 @@ def test_placeholder_credits_never_reach_a_puzzle():
     assert not any("filler" in f.title.lower() for f in corpus.films.values())
 
 
+def sparse_corpus() -> Corpus:
+    """Two disconnected pairs - nobody is reachable from anybody far enough."""
+    films = {"a": Film(key="a", title="A", year=2020, votes=99_999,
+                       cast=[("x", 1.0), ("y", 0.8)]),
+             "b": Film(key="b", title="B", year=2021, votes=99_999,
+                       cast=[("p", 1.0), ("q", 0.8)])}
+    return Corpus(films=films, people={}, names={n: n for n in "xypq"},
+                  by_person={"x": ["a"], "y": ["a"], "p": ["b"], "q": ["b"]})
+
+
 def test_six_degrees_declines_rather_than_shipping_a_broken_puzzle():
+    """A sparse cast web must produce no puzzle rather than a broken one."""
     with pytest.raises(NotEnoughData):
-        puzzles.generate("six-degrees", DAY, SNAPSHOT)
+        puzzles.six_degrees(sparse_corpus(), DAY)
 
 
 def test_six_degrees_works_once_the_cast_web_is_dense():

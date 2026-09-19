@@ -250,10 +250,19 @@ def test_a_finished_game_cannot_be_replayed_for_more_credits(client):
     assert db.user(conn, user_id)["credits"] == after_first
 
 
-def test_an_unavailable_game_sends_you_back_with_a_reason(client):
+def test_an_unavailable_game_sends_you_back_with_a_reason(client, monkeypatch):
+    """When the corpus cannot make a fair puzzle, the player is told, not shown
+    something broken."""
+    from app.games import routes
+    from app.games.puzzles import NotEnoughData
+
+    def refuse(game, on, snapshot):
+        raise NotEnoughData("Nothing fair to ask today.")
+
+    monkeypatch.setattr(routes, "generate", refuse)
     c, conn = client
     sign_in(c, conn)
-    r = c.get("/play/six-degrees", follow_redirects=False)
+    r = c.get("/play/ladder", follow_redirects=False)
     assert r.status_code == 303 and "/play?msg=" in r.headers["location"]
 
 

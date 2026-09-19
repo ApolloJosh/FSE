@@ -109,6 +109,8 @@ AWARD_TABLE = {
     "emmy_supporting": (160, 360),
     "critics_choice": (70, 150),
     "festival_top": (180, 400),
+    "european_film": (100, 220),
+    "national_major": (90, 200),      # Golden Horse, Cesar, Filmfare, AFA
     "spirit_gotham": (60, 130),
     "critics_group": (0, 90),
 }

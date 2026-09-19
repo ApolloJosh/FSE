@@ -43,6 +43,8 @@ AWARD_PATTERNS: list[tuple[str, str]] = [
     (r"(primetime )?emmy", "emmy_lead"),
     (r"critics.? choice", "critics_choice"),
     (r"(palme d'or|golden lion|golden bear|volpi cup|prix d'interpr)", "festival_top"),
+    (r"european film award", "european_film"),
+    (r"(golden horse|asian film award|filmfare award|c(e|\u00e9)sar award)", "national_major"),
     (r"(independent spirit|gotham)", "spirit_gotham"),
     (r"(new york film critics|los angeles film critics|national society of film critics)",
      "critics_group"),
@@ -83,7 +85,7 @@ class Wikidata(HTTPSource):
     name = "wikidata"
     env_var = ""            # no key required
     base_url = SPARQL_URL
-    min_interval = 1.0      # be a good citizen on a donated endpoint
+    min_interval = 1.5      # be a good citizen on a donated endpoint
 
     @property
     def available(self) -> bool:
@@ -92,21 +94,48 @@ class Wikidata(HTTPSource):
     def require_key(self) -> None:
         return None
 
-    def query(self, sparql: str, cache_key: str) -> list[dict[str, Any]]:
+    def query(self, sparql: str, cache_key: str, attempts: int = 4) -> list[dict[str, Any]]:
+        """Query with backoff.
+
+        Wikidata's public endpoint throttles, and a single unretried failure is
+        invisible: the caller logs it and moves on, and the person quietly ends
+        up with no awards and a price that is too low. In the first full roster
+        run this cost 88 of 256 people their entire award history - Julia
+        Roberts and Spike Lee among them - and the failures ramped up the
+        further into the run it got, which is exactly what throttling looks
+        like. Failures are never cached, so a rerun retries only these.
+        """
         cached = self.cache.get(cache_key)
         if cached is not None:
             return cached
 
+        import time
+
         import requests
-        self._throttle()
-        response = requests.get(
-            SPARQL_URL, params={"format": "json", "query": sparql},
-            headers={"Accept": "application/sparql-results+json", "User-Agent": USER_AGENT},
-            timeout=60)
-        response.raise_for_status()
-        rows = response.json()["results"]["bindings"]
-        self.cache.set(cache_key, rows)
-        return rows
+
+        last: Exception | None = None
+        for attempt in range(attempts):
+            if attempt:
+                time.sleep(min(30.0, 2.0 ** attempt))      # 2s, 4s, 8s
+            self._throttle()
+            try:
+                response = requests.get(
+                    SPARQL_URL, params={"format": "json", "query": sparql},
+                    headers={"Accept": "application/sparql-results+json",
+                             "User-Agent": USER_AGENT},
+                    timeout=90)
+            except requests.RequestException as exc:
+                last = exc
+                continue
+            if response.status_code in (429, 500, 502, 503, 504):
+                last = RuntimeError(f"wikidata {response.status_code}")
+                continue
+            response.raise_for_status()
+            rows = response.json()["results"]["bindings"]
+            self.cache.set(cache_key, rows)
+            return rows
+
+        raise RuntimeError(f"Wikidata failed after {attempts} attempts: {last}")
 
     # ------------------------------------------------------------------ people
     def qid_for_imdb(self, imdb_person_id: str) -> Optional[str]:
