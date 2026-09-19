@@ -672,6 +672,7 @@
      "release_kind": "wide",
      "imdb": 5.5,
      "imdb_votes": 60,
+     "worldwide_gross": 14848000.0,
      "release_date": "2015-10-01",
      "imdb_id": "tt4109204"
     },
@@ -3737,8 +3738,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2014-03-20",
-     "imdb_id": ""
+     "release_date": "2014-03-20"
     },
     {
      "title": "The Wolf of Wall Street",
@@ -11542,6 +11542,7 @@
      "rt_critics": 83.0,
      "imdb": 7.0,
      "imdb_votes": 7295,
+     "budget": 1920000.0,
      "release_date": "1971-09-21",
      "imdb_id": "tt0067805"
     }
@@ -14271,6 +14272,7 @@
      "imdb": 6.7,
      "imdb_votes": 10370,
      "metascore": 45.0,
+     "budget": 16500000.000000002,
      "worldwide_gross": 3009621,
      "release_date": "2018-01-03",
      "imdb_id": "tt3741632"
@@ -16730,8 +16732,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2016-01-17",
-     "imdb_id": ""
+     "release_date": "2016-01-17"
     },
     {
      "title": "Joy",
@@ -17381,8 +17382,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2016-01-17",
-     "imdb_id": ""
+     "release_date": "2016-01-17"
     },
     {
      "title": "Manglehorn",
@@ -20986,8 +20986,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2017-02-10",
-     "imdb_id": ""
+     "release_date": "2017-02-10"
     },
     {
      "title": "I Am Not Your Negro",
@@ -21761,6 +21760,7 @@
      "placeholder": false,
      "imdb": 8.8,
      "imdb_votes": 52,
+     "worldwide_gross": 14848000.0,
      "release_date": "2014-08-10",
      "imdb_id": "tt2334694"
     },
@@ -33496,6 +33496,7 @@
      "imdb": 6.2,
      "imdb_votes": 395,
      "metascore": 54.0,
+     "budget": 3146000.0000000005,
      "release_date": "2014-11-23",
      "imdb_id": "tt1989435"
     },
@@ -35629,6 +35630,7 @@
      "imdb_votes": 472346,
      "metascore": 54.0,
      "budget": 70000000,
+     "worldwide_gross": 16399999.999999998,
      "release_date": "2021-03-18",
      "imdb_id": "tt12361974"
     },
@@ -39687,6 +39689,7 @@
      "release_kind": "wide",
      "imdb": 6.7,
      "imdb_votes": 515,
+     "worldwide_gross": 14848000.0,
      "release_date": "2013-10-10",
      "imdb_id": "tt1977755"
     },
@@ -40043,6 +40046,7 @@
      "rt_critics": 40.0,
      "imdb": 4.8,
      "imdb_votes": 133,
+     "worldwide_gross": 37700000.0,
      "release_date": "2026-02-17",
      "imdb_id": "tt35514520"
     },
@@ -40151,6 +40155,7 @@
      "release_kind": "digital",
      "imdb": 4.7,
      "imdb_votes": 1275,
+     "budget": 50000000.0,
      "worldwide_gross": 11242056,
      "release_date": "2024-07-05",
      "imdb_id": "tt27589902"
@@ -43526,6 +43531,7 @@
      "imdb": 5.3,
      "imdb_votes": 16845,
      "metascore": 39.0,
+     "budget": 6656000.0,
      "worldwide_gross": 730762,
      "release_date": "2018-10-31",
      "imdb_id": "tt6905696"
@@ -43796,8 +43802,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2014-03-20",
-     "imdb_id": ""
+     "release_date": "2014-03-20"
     },
     {
      "title": "The Wolf of Wall Street",
@@ -51323,6 +51328,7 @@
      "imdb_votes": 11807,
      "metascore": 62.0,
      "budget": 10000000,
+     "worldwide_gross": 14848000.0,
      "release_date": "2018-06-21",
      "imdb_id": "tt5460880"
     },
@@ -51477,6 +51483,7 @@
      "imdb": 7.3,
      "imdb_votes": 81560,
      "metascore": 55.0,
+     "worldwide_gross": 14848000.0,
      "release_date": "2016-06-16",
      "imdb_id": "tt2452386"
     },
@@ -53117,6 +53124,8 @@
      "imdb": 5.3,
      "imdb_votes": 2304,
      "metascore": 71.0,
+     "budget": 3840000.0,
+     "worldwide_gross": 276480.0,
      "release_date": "2015-06-12",
      "imdb_id": "tt3573598"
     },
@@ -53475,6 +53484,7 @@
      "placeholder": false,
      "imdb": 5.3,
      "imdb_votes": 193,
+     "worldwide_gross": 19200.0,
      "release_date": "2007-10-07",
      "imdb_id": "tt1095408"
     },
@@ -53538,6 +53548,7 @@
      "rt_critics": 50.0,
      "imdb": 5.9,
      "imdb_votes": 6221,
+     "budget": 640000.0,
      "worldwide_gross": 429931,
      "release_date": "2006-11-03",
      "imdb_id": "tt0475380"
@@ -55685,8 +55696,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2014-03-11",
-     "imdb_id": ""
+     "release_date": "2014-03-11"
     },
     {
      "title": "In Secret",
@@ -55717,8 +55727,7 @@
      "placeholder": false,
      "release_kind": "digital",
      "budget": 200000,
-     "release_date": "2014-01-09",
-     "imdb_id": ""
+     "release_date": "2014-01-09"
     },
     {
      "title": "Another Day, Another Time: Celebrating the Music of 'Inside Llewyn Davis'",
@@ -57669,6 +57678,7 @@
      "rt_critics": 59.0,
      "imdb": 6.2,
      "imdb_votes": 2220,
+     "budget": 7680000.0,
      "worldwide_gross": 3200000.0,
      "release_date": "1998-06-12",
      "imdb_id": "tt0119494"
@@ -61026,8 +61036,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2014-03-11",
-     "imdb_id": ""
+     "release_date": "2014-03-11"
     },
     {
      "title": "Inside Llewyn Davis",
@@ -65001,8 +65010,7 @@
      "is_director": false,
      "placeholder": false,
      "release_kind": "digital",
-     "release_date": "2025-04-06",
-     "imdb_id": ""
+     "release_date": "2025-04-06"
     },
     {
      "title": "Ladies & Gentlemen... 50 Years of SNL Music",
@@ -68576,6 +68584,7 @@
      "imdb": 4.7,
      "imdb_votes": 7888,
      "metascore": 27.0,
+     "worldwide_gross": 14848000.0,
      "release_date": "2014-06-19",
      "imdb_id": "tt2962726"
     },
@@ -71292,8 +71301,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2015-08-31",
-     "imdb_id": ""
+     "release_date": "2015-08-31"
     },
     {
      "title": "Lennon or McCartney",
@@ -72952,6 +72960,7 @@
      "imdb": 6.7,
      "imdb_votes": 23176,
      "metascore": 82.0,
+     "budget": 1920000.0,
      "worldwide_gross": 2766094,
      "release_date": "2005-05-05",
      "imdb_id": "tt0382189"
@@ -78312,8 +78321,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2009-03-14",
-     "imdb_id": ""
+     "release_date": "2009-03-14"
     },
     {
      "title": "How to Lose Friends & Alienate People",
@@ -79769,8 +79777,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2014-11-04",
-     "imdb_id": ""
+     "release_date": "2014-11-04"
     },
     {
      "title": "Planes: Fire & Rescue",
@@ -81466,8 +81473,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2008-04-06",
-     "imdb_id": ""
+     "release_date": "2008-04-06"
     }
    ],
    "awards": [
@@ -85141,6 +85147,7 @@
      "release_kind": "wide",
      "imdb": 5.8,
      "imdb_votes": 45,
+     "worldwide_gross": 14848000.0,
      "release_date": "2009-01-01",
      "imdb_id": "tt1358949"
     },
@@ -85153,8 +85160,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2008-04-01",
-     "imdb_id": ""
+     "release_date": "2008-04-01"
     }
    ],
    "awards": [
@@ -88327,8 +88333,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2017-12-26",
-     "imdb_id": ""
+     "release_date": "2017-12-26"
     },
     {
      "title": "Marrowbone",
@@ -90950,6 +90955,7 @@
      "imdb": 7.1,
      "imdb_votes": 11525,
      "budget": 170000,
+     "worldwide_gross": 580569.6,
      "release_date": "2012-06-06",
      "imdb_id": "tt1760967"
     },
@@ -101866,6 +101872,7 @@
      "imdb": 6.4,
      "imdb_votes": 2493,
      "metascore": 62.0,
+     "worldwide_gross": 345041.0,
      "release_date": "2005-01-20",
      "imdb_id": "tt0384929"
     },
@@ -107267,6 +107274,7 @@
      "imdb": 6.2,
      "imdb_votes": 8922,
      "metascore": 35.0,
+     "worldwide_gross": 14848000.0,
      "release_date": "2014-12-20",
      "imdb_id": "tt2548208"
     },
@@ -108127,6 +108135,7 @@
      "imdb": 5.2,
      "imdb_votes": 6912,
      "metascore": 26.0,
+     "worldwide_gross": 14848000.0,
      "release_date": "2014-09-19",
      "imdb_id": "tt3202890"
     },
@@ -108160,6 +108169,7 @@
      "rt_critics": 20.0,
      "imdb": 5.3,
      "imdb_votes": 2931,
+     "worldwide_gross": 14848000.0,
      "release_date": "2014-07-11",
      "imdb_id": "tt2497980"
     },
@@ -110327,8 +110337,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2014-01-14",
-     "imdb_id": ""
+     "release_date": "2014-01-14"
     },
     {
      "title": "I Know That Voice",
@@ -117303,8 +117312,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2017-09-01",
-     "imdb_id": ""
+     "release_date": "2017-09-01"
     },
     {
      "title": "Jackie",
@@ -121827,6 +121835,7 @@
      "imdb": 6.0,
      "imdb_votes": 26724,
      "metascore": 70.0,
+     "budget": 5500000.0,
      "worldwide_gross": 889529,
      "release_date": "2022-08-17",
      "imdb_id": "tt20225374"
@@ -123315,6 +123324,7 @@
      "imdb": 6.7,
      "imdb_votes": 23176,
      "metascore": 82.0,
+     "budget": 1920000.0,
      "worldwide_gross": 2766094,
      "release_date": "2005-05-05",
      "imdb_id": "tt0382189"
@@ -123523,8 +123533,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2000-01-01",
-     "imdb_id": ""
+     "release_date": "2000-01-01"
     },
     {
      "title": "A Room for Romeo Brass",
@@ -124898,6 +124907,8 @@
      "release_kind": "digital",
      "imdb": 4.6,
      "imdb_votes": 315,
+     "budget": 8250000.000000001,
+     "worldwide_gross": 2200000.0,
      "release_date": "2017-05-05",
      "imdb_id": "tt3837842"
     },
@@ -126207,6 +126218,7 @@
      "release_kind": "wide",
      "imdb": 4.5,
      "imdb_votes": 1670,
+     "budget": 3200000.0,
      "worldwide_gross": 238177.0,
      "release_date": "2012-11-09",
      "imdb_id": "tt2027154"
@@ -126306,8 +126318,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2012-03-23",
-     "imdb_id": ""
+     "release_date": "2012-03-23"
     },
     {
      "title": "Comes a Bright Day",
@@ -127962,8 +127973,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2014-12-26",
-     "imdb_id": ""
+     "release_date": "2014-12-26"
     },
     {
      "title": "Paddington",
@@ -129367,6 +129377,8 @@
      "imdb": 5.3,
      "imdb_votes": 2304,
      "metascore": 71.0,
+     "budget": 3840000.0,
+     "worldwide_gross": 276480.0,
      "release_date": "2015-06-12",
      "imdb_id": "tt3573598"
     },
@@ -130132,6 +130144,7 @@
      "placeholder": false,
      "imdb": 5.5,
      "imdb_votes": 1053,
+     "worldwide_gross": 70231.70000000001,
      "release_date": "2009-10-09",
      "imdb_id": "tt1324053"
     },
@@ -131564,6 +131577,7 @@
      "imdb": 6.4,
      "imdb_votes": 20126,
      "metascore": 63.0,
+     "budget": 8800000.0,
      "worldwide_gross": 455815,
      "release_date": "2013-07-03",
      "imdb_id": "tt1821641"
@@ -134748,8 +134762,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2014-06-01",
-     "imdb_id": ""
+     "release_date": "2014-06-01"
     },
     {
      "title": "Kung Fu Panda:  The Awesome Secrets Collection",
@@ -137345,6 +137358,7 @@
      "placeholder": false,
      "imdb": 7.5,
      "imdb_votes": 1531,
+     "worldwide_gross": 25800000.0,
      "release_date": "2018-01-17",
      "imdb_id": "tt6985200"
     },
@@ -137385,6 +137399,7 @@
      "placeholder": false,
      "imdb": 7.5,
      "imdb_votes": 1259,
+     "worldwide_gross": 3100000.0,
      "release_date": "2016-05-19",
      "imdb_id": "tt6135036"
     },
@@ -137417,6 +137432,7 @@
      "placeholder": false,
      "imdb": 4.8,
      "imdb_votes": 224,
+     "worldwide_gross": 906136.0,
      "release_date": "2015-06-25",
      "imdb_id": "tt4607976"
     },
@@ -137431,6 +137447,7 @@
      "placeholder": false,
      "imdb": 7.2,
      "imdb_votes": 628,
+     "worldwide_gross": 7800000.0,
      "release_date": "2015-04-09",
      "imdb_id": "tt4695462"
     },
@@ -137447,6 +137464,7 @@
      "imdb": 6.9,
      "imdb_votes": 1550,
      "metascore": 73.0,
+     "worldwide_gross": 292411.0,
      "release_date": "2014-09-04",
      "imdb_id": "tt3732252"
     },
@@ -137461,6 +137479,7 @@
      "placeholder": false,
      "imdb": 6.6,
      "imdb_votes": 371,
+     "worldwide_gross": 7102103.0,
      "release_date": "2013-05-09",
      "imdb_id": "tt2969506"
     },
@@ -137537,6 +137556,7 @@
      "placeholder": false,
      "imdb": 6.3,
      "imdb_votes": 1601,
+     "worldwide_gross": 4900000.0,
      "release_date": "2011-08-31",
      "imdb_id": "tt2015315"
     },
@@ -137554,6 +137574,7 @@
      "imdb_votes": 14097,
      "metascore": 68.0,
      "budget": 4000000,
+     "worldwide_gross": 14700000.0,
      "release_date": "2010-05-13",
      "imdb_id": "tt1314652"
     },
@@ -137585,6 +137606,7 @@
      "release_kind": "wide",
      "imdb": 7.0,
      "imdb_votes": 286,
+     "worldwide_gross": 3400000.0,
      "release_date": "2009-12-10",
      "imdb_id": "tt1459219"
     },
@@ -137599,6 +137621,7 @@
      "placeholder": false,
      "imdb": 5.3,
      "imdb_votes": 1161,
+     "worldwide_gross": 1700000.0,
      "release_date": "2008-04-30",
      "imdb_id": "tt1433775"
     },
@@ -137613,6 +137636,8 @@
      "placeholder": false,
      "imdb": 6.3,
      "imdb_votes": 647,
+     "budget": 7200000.0,
+     "worldwide_gross": 8511147.0,
      "release_date": "2007-06-06",
      "imdb_id": "tt1059200"
     },
@@ -137627,6 +137652,8 @@
      "placeholder": false,
      "imdb": 6.4,
      "imdb_votes": 462,
+     "budget": 3500000.0,
+     "worldwide_gross": 1577570.0,
      "release_date": "2007-01-04",
      "imdb_id": "tt0939911"
     },
@@ -137641,6 +137668,8 @@
      "placeholder": false,
      "imdb": 7.4,
      "imdb_votes": 1497,
+     "budget": 4200000.0,
+     "worldwide_gross": 14800000.0,
      "release_date": "2006-09-14",
      "imdb_id": "tt0870967"
     },
@@ -137795,6 +137824,7 @@
      "is_director": false,
      "placeholder": false,
      "imdb_votes": 351,
+     "worldwide_gross": 1900000.0,
      "release_date": "2024-12-04",
      "imdb_id": "tt14895212"
     },
@@ -137914,6 +137944,8 @@
      "rt_critics": 75.0,
      "imdb": 6.2,
      "imdb_votes": 4044,
+     "budget": 13400000.0,
+     "worldwide_gross": 14500000.0,
      "release_date": "2018-12-19",
      "imdb_id": "tt6914542"
     },
@@ -137989,6 +138021,7 @@
      "placeholder": false,
      "imdb": 7.1,
      "imdb_votes": 3394,
+     "budget": 8300000.000000001,
      "worldwide_gross": 42165755,
      "release_date": "2015-09-16",
      "imdb_id": "tt4010918"
@@ -138026,6 +138059,7 @@
      "imdb": 7.7,
      "imdb_votes": 8421,
      "metascore": 55.0,
+     "worldwide_gross": 74100000.0,
      "release_date": "2013-12-18",
      "imdb_id": "tt3404140"
     },
@@ -138051,6 +138085,7 @@
      "placeholder": false,
      "imdb": 6.8,
      "imdb_votes": 3188,
+     "worldwide_gross": 61000000.0,
      "release_date": "2013-09-11",
      "imdb_id": "tt3008014"
     },
@@ -138127,6 +138162,7 @@
      "placeholder": false,
      "imdb": 6.3,
      "imdb_votes": 1601,
+     "worldwide_gross": 4900000.0,
      "release_date": "2011-08-31",
      "imdb_id": "tt2015315"
     },
@@ -138596,6 +138632,7 @@
      "release_kind": "digital",
      "imdb": 5.5,
      "imdb_votes": 1190,
+     "worldwide_gross": 1800000.0,
      "release_date": "2024-08-07",
      "imdb_id": "tt28284984"
     },
@@ -138659,6 +138696,7 @@
      "placeholder": false,
      "imdb": 5.1,
      "imdb_votes": 247,
+     "worldwide_gross": 216009.0,
      "release_date": "2019-02-27",
      "imdb_id": "tt9735232"
     },
@@ -138724,6 +138762,7 @@
      "placeholder": false,
      "imdb": 6.3,
      "imdb_votes": 498,
+     "worldwide_gross": 5500000.0,
      "release_date": "2017-05-31",
      "imdb_id": "tt6010020"
     },
@@ -138757,6 +138796,7 @@
      "placeholder": false,
      "imdb": 5.5,
      "imdb_votes": 693,
+     "worldwide_gross": 2086000.0000000002,
      "release_date": "2016-07-15",
      "imdb_id": "tt6033150"
     },
@@ -138774,6 +138814,7 @@
      "imdb": 7.2,
      "imdb_votes": 8447,
      "metascore": 64.0,
+     "budget": 16000000.0,
      "worldwide_gross": 96119773,
      "release_date": "2015-07-22",
      "imdb_id": "tt3501416"
@@ -138790,6 +138831,7 @@
      "imdb": 6.2,
      "imdb_votes": 800,
      "budget": 500,
+     "worldwide_gross": 7800000.0,
      "release_date": "2014-11-26",
      "imdb_id": "tt4156924"
     },
@@ -138804,6 +138846,7 @@
      "placeholder": false,
      "imdb": 6.8,
      "imdb_votes": 3188,
+     "worldwide_gross": 61000000.0,
      "release_date": "2013-09-11",
      "imdb_id": "tt3008014"
     },
@@ -138821,6 +138864,7 @@
      "imdb": 7.5,
      "imdb_votes": 28630,
      "metascore": 58.0,
+     "worldwide_gross": 31700000.0,
      "release_date": "2013-02-21",
      "imdb_id": "tt2625030"
     },
@@ -138838,6 +138882,7 @@
      "imdb": 6.8,
      "imdb_votes": 12134,
      "metascore": 75.0,
+     "budget": 14100000.0,
      "worldwide_gross": 83519699,
      "release_date": "2012-07-25",
      "imdb_id": "tt2330866"
@@ -138867,6 +138912,7 @@
      "imdb_votes": 14097,
      "metascore": 68.0,
      "budget": 4000000,
+     "worldwide_gross": 14700000.0,
      "release_date": "2010-05-13",
      "imdb_id": "tt1314652"
     },
@@ -139066,8 +139112,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "1997-04-28",
-     "imdb_id": ""
+     "release_date": "1997-04-28"
     },
     {
      "title": "Firebird",
@@ -140391,6 +140436,7 @@
      "rt_critics": 60.0,
      "imdb": 6.2,
      "imdb_votes": 8979,
+     "budget": 7150000.000000001,
      "worldwide_gross": 2405336,
      "release_date": "2010-10-28",
      "imdb_id": "tt1692504"
@@ -141150,6 +141196,7 @@
      "imdb": 7.6,
      "imdb_votes": 65366,
      "metascore": 77.0,
+     "budget": 487630.00000000006,
      "worldwide_gross": 3191971,
      "release_date": "2015-06-11",
      "imdb_id": "tt4226388"
@@ -142264,8 +142311,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2010-02-28",
-     "imdb_id": ""
+     "release_date": "2010-02-28"
     },
     {
      "title": "Temple Grandin",
@@ -148058,8 +148104,7 @@
      "is_uncredited": false,
      "is_director": false,
      "placeholder": false,
-     "release_date": "2016-12-06",
-     "imdb_id": ""
+     "release_date": "2016-12-06"
     },
     {
      "title": "Disney Parks Presents: A Descendants Magical Holiday Celebration",
@@ -150414,6 +150459,7 @@
      "imdb": 6.7,
      "imdb_votes": 10370,
      "metascore": 45.0,
+     "budget": 16500000.000000002,
      "worldwide_gross": 3009621,
      "release_date": "2018-01-03",
      "imdb_id": "tt3741632"
@@ -152722,6 +152768,7 @@
      "imdb": 7.3,
      "imdb_votes": 67037,
      "metascore": 85.0,
+     "budget": 10125000.0,
      "worldwide_gross": 16914773,
      "release_date": "2022-06-29",
      "imdb_id": "tt12477480"
@@ -152765,6 +152812,7 @@
      "placeholder": false,
      "imdb": 7.7,
      "imdb_votes": 2227,
+     "worldwide_gross": 13600000.0,
      "release_date": "2020-09-29",
      "imdb_id": "tt13273172"
     },
@@ -152779,6 +152827,7 @@
      "placeholder": false,
      "imdb": 6.2,
      "imdb_votes": 427,
+     "worldwide_gross": 16200000.0,
      "release_date": "2019-11-13",
      "imdb_id": "tt11238048"
     },
@@ -152864,6 +152913,7 @@
      "placeholder": false,
      "imdb": 5.8,
      "imdb_votes": 595,
+     "worldwide_gross": 3900000.0,
      "release_date": "2015-11-25",
      "imdb_id": "tt5214690"
     },
@@ -152972,6 +153022,8 @@
      "placeholder": false,
      "imdb": 6.0,
      "imdb_votes": 475,
+     "budget": 1800000.0,
+     "worldwide_gross": 11400000.0,
      "release_date": "2012-02-29",
      "imdb_id": "tt2300995"
     },
@@ -152999,6 +153051,7 @@
      "release_kind": "wide",
      "imdb": 7.0,
      "imdb_votes": 286,
+     "worldwide_gross": 3400000.0,
      "release_date": "2009-12-10",
      "imdb_id": "tt1459219"
     },
@@ -154416,8 +154469,7 @@
      "is_director": false,
      "placeholder": false,
      "release_kind": "digital",
-     "release_date": "2017-04-03",
-     "imdb_id": ""
+     "release_date": "2017-04-03"
     },
     {
      "title": "As You Are",
@@ -154860,6 +154912,7 @@
      "release_kind": "digital",
      "imdb": 4.9,
      "imdb_votes": 1580,
+     "worldwide_gross": 14848000.0,
      "release_date": "2017-04-04",
      "imdb_id": "tt3731580"
     },
@@ -159244,6 +159297,7 @@
      "imdb": 7.3,
      "imdb_votes": 67037,
      "metascore": 85.0,
+     "budget": 10125000.0,
      "worldwide_gross": 16914773,
      "release_date": "2022-06-29",
      "imdb_id": "tt12477480"
@@ -159400,6 +159454,7 @@
      "rt_critics": 92.0,
      "imdb": 6.9,
      "imdb_votes": 26625,
+     "budget": 3000000.0,
      "worldwide_gross": 4354510,
      "release_date": "2006-12-07",
      "imdb_id": "tt0497137"
@@ -159618,6 +159673,7 @@
      "imdb": 7.8,
      "imdb_votes": 40489,
      "metascore": 79.0,
+     "worldwide_gross": 20700000.0,
      "release_date": "2023-06-02",
      "imdb_id": "tt23736044"
     },
@@ -160203,6 +160259,7 @@
      "imdb": 6.7,
      "imdb_votes": 15294,
      "metascore": 67.0,
+     "budget": 1870000.0000000002,
      "worldwide_gross": 544509.0,
      "release_date": "2007-05-17",
      "imdb_id": "tt0869977"
@@ -160362,6 +160419,7 @@
      "imdb": 7.5,
      "imdb_votes": 12144,
      "metascore": 77.0,
+     "budget": 2560000.0,
      "worldwide_gross": 888817.0,
      "release_date": "1999-11-12",
      "imdb_id": "tt0171685"
@@ -162366,8 +162424,7 @@
      "is_uncredited": false,
      "is_director": true,
      "placeholder": false,
-     "release_date": "2005-11-30",
-     "imdb_id": ""
+     "release_date": "2005-11-30"
     },
     {
      "title": "In the Cut",
@@ -163114,8 +163171,7 @@
      "is_director": true,
      "placeholder": false,
      "release_kind": "wide",
-     "release_date": "2009-02-27",
-     "imdb_id": ""
+     "release_date": "2009-02-27"
     },
     {
      "title": "Medicine for Melancholy",
@@ -163291,8 +163347,7 @@
      "is_director": true,
      "placeholder": false,
      "release_kind": "wide",
-     "release_date": "2013-08-14",
-     "imdb_id": ""
+     "release_date": "2013-08-14"
     },
     {
      "title": "The Door",
@@ -163560,8 +163615,7 @@
      "is_director": true,
      "placeholder": false,
      "release_kind": "digital",
-     "release_date": "2017-03-01",
-     "imdb_id": ""
+     "release_date": "2017-03-01"
     },
     {
      "title": "2 Fists Up",
@@ -163652,8 +163706,7 @@
      "is_director": true,
      "placeholder": false,
      "release_kind": "wide",
-     "release_date": "2014-10-21",
-     "imdb_id": ""
+     "release_date": "2014-10-21"
     },
     {
      "title": "Jerrod Carmichael: Love at the Store",
@@ -164092,8 +164145,7 @@
      "is_uncredited": false,
      "is_director": true,
      "placeholder": false,
-     "release_date": "1998-06-09",
-     "imdb_id": ""
+     "release_date": "1998-06-09"
     },
     {
      "title": "He Got Game",
@@ -165421,8 +165473,7 @@
      "is_uncredited": false,
      "is_director": true,
      "placeholder": false,
-     "release_date": "2008-06-03",
-     "imdb_id": ""
+     "release_date": "2008-06-03"
     },
     {
      "title": "The Work of Director Jonathan Glazer",
@@ -167480,6 +167531,7 @@
      "imdb": 7.7,
      "imdb_votes": 47349,
      "metascore": 85.0,
+     "budget": 3200000.0,
      "worldwide_gross": 1769305,
      "release_date": "1993-08-06",
      "imdb_id": "tt0107653"
@@ -167522,6 +167574,7 @@
      "imdb": 7.4,
      "imdb_votes": 11523,
      "metascore": 88.0,
+     "budget": 1280000.0,
      "worldwide_gross": 1500000,
      "release_date": "1991-03-22",
      "imdb_id": "tt0100024"
@@ -167538,6 +167591,7 @@
      "imdb": 7.4,
      "imdb_votes": 5909,
      "metascore": 84.0,
+     "budget": 1536000.0,
      "worldwide_gross": 1192322,
      "release_date": "1989-01-13",
      "imdb_id": "tt0095302"

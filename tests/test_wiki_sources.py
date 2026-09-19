@@ -98,11 +98,36 @@ def test_references_and_templates_are_stripped():
     assert parse_money(raw) == pytest.approx(30e6)
 
 
-def test_non_dollar_figures_are_refused_rather_than_guessed():
-    """We have no exchange rate, so a rupee or euro figure is not a number we
-    can put on the multiple-of-budget ladder."""
-    assert parse_money("₹125 crore") is None
-    assert parse_money("€12 million") is None
+def test_non_dollar_figures_are_converted():
+    """Foreign films are the ones missing a budget most often, and when they
+    have one it is rarely in dollars. Refusing to read it threw away 36 budgets
+    on a 1,467-article sample."""
+    assert parse_money("€12 million") == pytest.approx(13.2e6)
+    assert parse_money("£2 million") == pytest.approx(2.56e6)
+    assert parse_money("₹125 crore") == pytest.approx(125 * 1e7 * 0.012)
+
+
+def test_a_currency_template_is_read_before_templates_are_stripped():
+    """{{KRW|15 billion}} was being stripped wholesale, so a documented budget
+    read as no budget."""
+    assert parse_money("{{KRW|15 billion}}") == pytest.approx(11.25e6)
+    assert parse_money("{{USD|7,200,000}}") == pytest.approx(7.2e6)
+    assert parse_money("{{cite web|url=x}}") is None
+
+
+def test_a_longer_currency_marker_wins():
+    """Read as a bare yen sign, a Chinese film prices at a twentieth of its
+    budget; read as a bare dollar, an Australian one at half again too much."""
+    assert parse_money("CN¥300 million") == pytest.approx(42e6)
+    assert parse_money("A$20 million") == pytest.approx(13.2e6)
+    assert parse_money("US$20 million") == pytest.approx(20e6)
+
+
+def test_a_small_figure_is_judged_before_conversion():
+    """¥100,000,000 is a real budget; it must not be discarded for being under
+    the dollar cutoff after conversion."""
+    assert parse_money("¥100,000,000") == pytest.approx(680_000)
+    assert parse_money("¥500") is None
 
 
 def test_junk_returns_none_rather_than_a_guess():

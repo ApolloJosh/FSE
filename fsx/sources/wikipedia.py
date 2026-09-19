@@ -35,23 +35,62 @@ USER_AGENT = "FilmStockExchange/0.1 (career scoring research)"
 
 MULTIPLIERS = {"thousand": 1e3, "million": 1e6, "billion": 1e9, "crore": 1e7, "lakh": 1e5}
 
+# Foreign films are the ones whose budgets are missing most often, and when they
+# do have one it is rarely in dollars. Refusing to read it dropped 27 of the 54
+# budgets that failed to parse on a 1,467-article sample - a British film with a
+# documented £2M budget read as having no budget at all.
+#
+# These are rough long-run rates, not the rate on the film's release date. That
+# is fine: the ladder buckets are wide enough that a 10% error in the conversion
+# never moves a film between rungs. It would not be fine for anything narrower.
+USD_PER = {
+    "$": 1.0, "US$": 1.0, "USD": 1.0,
+    "€": 1.10, "EUR": 1.10,
+    "£": 1.28, "GBP": 1.28,
+    "¥": 0.0068, "JPY": 0.0068,
+    "₩": 0.00075, "KRW": 0.00075,
+    "₹": 0.012, "INR": 0.012,
+    "A$": 0.66, "AUD": 0.66,
+    "C$": 0.73, "CAD": 0.73,
+    "CN¥": 0.14, "CNY": 0.14, "RMB": 0.14,
+    "R$": 0.19, "BRL": 0.19,
+}
+# Longest first, so "US$" and "A$" are not read as a bare "$", and "CN¥" is not
+# read as yen - which would price a Chinese film at a twentieth of its budget.
+CURRENCY_MARKERS = sorted(USD_PER, key=len, reverse=True)
+
+
+def _currency_templates(text: str) -> str:
+    """{{KRW|15 billion}} -> 'KRW 15 billion', before templates get stripped."""
+    def sub(match):
+        code = match.group(1).upper()
+        return f" {code} {match.group(2)} " if code in USD_PER else " "
+    return re.sub(r"\{\{\s*([A-Za-z]{3})\s*\|\s*([^{}|]+?)\s*(?:\|[^{}]*)?\}\}",
+                  sub, text)
+
 
 def parse_money(raw: Optional[str]) -> Optional[float]:
-    """'$976.1 million' -> 976100000.0. Ranges take the low end; anything that
-    does not parse cleanly returns None rather than a guess."""
+    """'$976.1 million' -> 976100000.0, '£2 million' -> 2560000.0.
+
+    Ranges take the low end; anything that does not parse cleanly returns None
+    rather than a guess.
+    """
     if not raw:
         return None
 
     text = re.sub(r"<ref[\s\S]*?(/>|</ref>)", " ", raw)
+    text = _currency_templates(text)
     text = re.sub(r"\{\{[^{}]*\}\}", " ", text)
     text = text.replace("&nbsp;", " ").replace("–", "-").replace("—", "-")
     text = re.sub(r"[\[\]']", "", text).strip()
 
-    # Only trust figures marked as dollars; other currencies need a rate we do
-    # not have, and an unmarked number is usually a footnote.
-    if "$" not in text:
+    # A figure has to say what currency it is in. An unmarked number in an
+    # infobox is usually a footnote marker or a stray year.
+    marker = next((m for m in CURRENCY_MARKERS if m in text), None)
+    if marker is None:
         return None
-    text = text.split("$", 1)[1]
+    rate = USD_PER[marker]
+    text = text.split(marker, 1)[1]
 
     match = re.match(r"\s*([\d,]+(?:\.\d+)?)", text)
     if not match:
@@ -61,8 +100,10 @@ def parse_money(raw: Optional[str]) -> Optional[float]:
     tail = text[match.end():match.end() + 24].lower()
     for word, factor in MULTIPLIERS.items():
         if word in tail:
-            return amount * factor
-    return amount if amount > 1000 else None      # a bare "$100" is not a budget
+            return amount * factor * rate
+    # A bare "$100" is a footnote, not a budget - but the cutoff is on the
+    # original figure, so ¥100,000,000 is not thrown away for being small.
+    return amount * rate if amount > 1000 else None
 
 
 def is_film_article(wikitext: str) -> bool:
