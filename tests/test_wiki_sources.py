@@ -231,3 +231,101 @@ def test_a_film_with_only_rt_falls_below_the_source_minimum():
     payload = dict(OMDB_PAYLOAD, Metascore="N/A",
                    Ratings=[{"Source": "Rotten Tomatoes", "Value": "85%"}])
     assert reception_score(_enriched(payload)) is None
+
+
+# ------------------------------------------------- SPARQL / label-service wiring
+def _sparql_of(method, *args):
+    """Capture the query a method builds, without any network."""
+    from fsx.sources.wikidata import Wikidata
+    source = Wikidata()
+    captured = {}
+
+    def fake_query(sparql, cache_key):
+        captured["sparql"] = sparql
+        return []
+
+    source.query = fake_query
+    getattr(source, method)(*args)
+    return captured.get("sparql", "")
+
+
+def test_label_variables_have_a_matching_subject():
+    """wikibase:label derives ?xLabel from a variable named ?x. Selecting
+    ?awardLabel while binding ?a returns rows with no label at all - the query
+    succeeds, and every award is silently dropped. That shipped once."""
+    import re
+    for query in (_sparql_of("awards", "Q123"), _sparql_of("films_info", ["tt1"])):
+        for label_var in set(re.findall(r"\?(\w+)Label\b", query)):
+            assert re.search(rf"\?{label_var}\b(?!Label)", query), (
+                f"?{label_var}Label is selected but ?{label_var} is never bound")
+
+
+def test_the_awards_query_asks_for_both_wins_and_nominations():
+    query = _sparql_of("awards", "Q873")
+    assert "P166" in query and "P1411" in query
+    assert '"won"' in query and '"nom"' in query
+
+
+def test_films_info_batches_ids_into_one_query():
+    query = _sparql_of("films_info", ["tt1", "tt2", "tt3"])
+    assert query.count("VALUES") == 1
+    for i in ("tt1", "tt2", "tt3"):
+        assert f'"{i}"' in query
+
+
+def test_an_award_row_with_no_label_is_skipped_not_crashed():
+    from fsx.sources.wikidata import Wikidata
+    source = Wikidata()
+    source.query = lambda *_: [
+        {"kind": {"value": "won"}, "date": {"value": "2020-01-01T00:00:00Z"}},
+    ]
+    assert source.awards("Q1") == []
+
+
+def test_awards_map_and_date_correctly():
+    from fsx.sources.wikidata import Wikidata
+    source = Wikidata()
+    source.query = lambda *_: [
+        {"kind": {"value": "won"},
+         "awardLabel": {"value": "Academy Award for Best Director"},
+         "date": {"value": "2024-01-01T00:00:00Z"}},
+        {"kind": {"value": "nom"},
+         "awardLabel": {"value": "Golden Globe Award for Best Director"},
+         "date": {"value": "2024-01-01T00:00:00Z"}},
+    ]
+    awards = source.awards("Q25191")
+    assert {a.key for a in awards} == {"oscar_directing", "globe"}
+    assert [a.won for a in awards] == [True, False]
+    assert awards[0].year == 2023        # a 2024 ceremony honours 2023 films
+
+
+def test_awards_reach_the_engine_as_career_points():
+    """The end of the chain that broke: awards fetched, mapped, and actually
+    moving a price."""
+    from datetime import date
+    from fsx.engine import value_person
+    from fsx.models import Person
+    from fsx.sources.wikidata import Wikidata
+
+    source = Wikidata()
+    source.query = lambda *_: [
+        {"kind": {"value": "won"},
+         "awardLabel": {"value": "Academy Award for Best Actress"},
+         "date": {"value": "2023-01-01T00:00:00Z"}},
+    ]
+    person = Person("test", awards=source.awards("Q1"))
+    assert value_person(person, date(2023, 6, 1)).award_cp > 0
+
+
+def test_screenplay_awards_are_not_dropped():
+    """A live query for a director returned several 'Academy Award for Best
+    Writing, Adapted Screenplay' rows that mapped to nothing and vanished."""
+    assert classify_award("Academy Award for Best Writing, Adapted Screenplay") \
+        == "oscar_screenplay"
+    assert classify_award("Academy Award for Best Writing, Original Screenplay") \
+        == "oscar_screenplay"
+
+
+def test_screenplay_does_not_outrank_directing():
+    from fsx import constants as K
+    assert K.AWARD_TABLE["oscar_screenplay"] < K.AWARD_TABLE["oscar_directing"]

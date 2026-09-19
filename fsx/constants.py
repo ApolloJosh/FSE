@@ -100,6 +100,7 @@ AWARD_TABLE = {
     "oscar_supporting": (340, 750),
     "oscar_directing": (420, 950),
     "oscar_picture": (250, 600),
+    "oscar_screenplay": (230, 520),
     "bafta": (140, 300),
     "globe": (110, 230),
     "sag_individual": (130, 280),
@@ -113,7 +114,8 @@ AWARD_TABLE = {
 }
 CRITICS_GROUP_CAP = 270
 FIRST_OSCAR_WIN_MULTIPLIER = 1.5
-OSCAR_KEYS = {"oscar_lead", "oscar_supporting", "oscar_directing", "oscar_picture"}
+OSCAR_KEYS = {"oscar_lead", "oscar_supporting", "oscar_directing",
+              "oscar_picture", "oscar_screenplay"}
 PRECURSOR_KEYS = {"bafta", "globe", "sag_individual", "critics_choice"}
 SNUB_MIN_PRECURSORS = 2
 SNUB_CLAWBACK = 0.40

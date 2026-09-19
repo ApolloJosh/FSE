@@ -32,6 +32,7 @@ USER_AGENT = "FilmStockExchange/0.1 (career scoring research)"
 AWARD_PATTERNS: list[tuple[str, str]] = [
     (r"academy award.*(best director|directing)", "oscar_directing"),
     (r"academy award.*best (motion )?picture", "oscar_picture"),
+    (r"academy award.*(writing|screenplay)", "oscar_screenplay"),
     (r"academy award.*supporting", "oscar_supporting"),
     (r"academy award.*best (actor|actress)", "oscar_lead"),
     (r"(british academy|bafta)", "bafta"),
@@ -118,26 +119,31 @@ class Wikidata(HTTPSource):
 
     def awards(self, qid: str) -> list[Award]:
         """Every award and nomination Wikidata holds for a person."""
+        # The label service derives ?awardLabel from a variable named ?award.
+        # Naming it ?a returns rows with no label at all, which is silent - the
+        # query succeeds and every award is dropped. See test_label_variables.
         sparql = f"""
 SELECT ?kind ?awardLabel ?date WHERE {{
-  {{ wd:{qid} p:P166 ?s . BIND("won" AS ?kind) ?s ps:P166 ?a .
+  {{ wd:{qid} p:P166 ?s . BIND("won" AS ?kind) ?s ps:P166 ?award .
      OPTIONAL {{ ?s pq:P585 ?date }} }}
   UNION
-  {{ wd:{qid} p:P1411 ?s . BIND("nom" AS ?kind) ?s ps:P1411 ?a .
+  {{ wd:{qid} p:P1411 ?s . BIND("nom" AS ?kind) ?s ps:P1411 ?award .
      OPTIONAL {{ ?s pq:P585 ?date }} }}
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
 }}"""
         out: list[Award] = []
         for row in self.query(sparql, f"awards:{qid}"):
-            key = classify_award(row["awardLabel"]["value"])
+            label = row.get("awardLabel", {}).get("value")
+            if not label:
+                continue        # no label, nothing to classify
+            key = classify_award(label)
             if key is None:
                 continue
             awarded = _parse_date(row.get("date", {}).get("value"))
             if awarded is None:
                 continue        # undated awards cannot be decayed, so they are dropped
             out.append(Award(key=key, year=awarded.year - 1, awarded_on=awarded,
-                             won=row["kind"]["value"] == "won",
-                             category=row["awardLabel"]["value"]))
+                             won=row["kind"]["value"] == "won", category=label))
         return _dedupe(out)
 
     # ------------------------------------------------------------------- films
