@@ -57,6 +57,19 @@ it, because a signed session cookie with a known key is a forgeable one. Google
 and GitHub OAuth pairs are optional; the sign-in page offers only the buttons
 that are configured.
 
+## What can be hosted where
+
+The game is a Python server with a SQLite database. **GitHub Pages cannot run
+it** — Pages serves files. So:
+
+| | where it goes |
+| --- | --- |
+| The game (`app/`) | Fly.io or Render — see `DEPLOY.md` |
+| The static market (`site/`) | GitHub Pages, built nightly by `.github/workflows/rebuild.yml` |
+
+A Pages deploy of this repo will always be the read-only half. That is not a
+broken deploy; it is the only half a static host can serve.
+
 ## The site
 
 `fsx.cli site` reads `data/people.json` and writes a static `site/` — no server,
