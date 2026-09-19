@@ -6,7 +6,9 @@ nothing else.
 
 **Phase 0** answered one question: does a film-literate person read the ranked
 list and find it defensible? **Phase 1** published the prices as a static site.
-**Phase 2** is the game: accounts, Credits, portfolios, trading and leaderboards.
+**Phase 2** added the game: accounts, Credits, portfolios, trading and
+leaderboards. **Phase 3** is the daily habit: puzzles that pay the Credits the
+market runs on.
 
 ## Run it
 
@@ -209,3 +211,60 @@ asserts that a user's balance always equals the sum of their ledger.
 persistent disk) or `fly.toml`. SQLite lives on the mounted disk, never in the
 image — otherwise every deploy wipes every portfolio. OAuth callback URLs are
 `https://YOUR-HOST/auth/google/callback` and `/auth/github/callback`.
+
+
+## Phase 3: the daily games
+
+```bash
+uvicorn app.main:app --reload    # then visit /play
+```
+
+Four puzzles a day plus a weekend one, all generated from the same film data
+that prices the market — so playing them teaches you to read it.
+
+| Game | What it asks | Pays |
+| --- | --- | --- |
+| Six Degrees | Connect two actors through films they shared | CR 0.60–1.80 |
+| The Ladder | Six films, obscurest first — name the actor | CR 0.60–1.80 |
+| Box Office Blind | Rank five films by worldwide gross | CR 0.40–1.20 |
+| Cast Gap | One name is missing from the billing | CR 0.40–1.20 |
+| The Slate *(weekend)* | Highest-grossing cast inside a budget | CR 4.00–12.00 |
+
+Plus a CR 2.50 perfect-day bonus and CR 0.50 per streak day, capped at 5.00. A
+perfect day with the weekend puzzle tops out around CR 16.00.
+
+**A fifth game, Critics vs Crowd, is deliberately absent.** It needs the Rotten
+Tomatoes audience score, which is not licensable — see the data table above. The
+slot stays empty rather than being filled with a proxy.
+
+### Two rules the generators obey
+
+**Deterministic per day.** The seed is a hash of the game name and the date, so
+everyone gets the same puzzle and nothing has to be stored. A daily game people
+cannot compare notes on is just a quiz.
+
+**The answer never leaves the server.** A puzzle has a public half that goes to
+the browser and a private half that does not. Every guess is a POST the server
+grades.
+
+### Fairness
+
+Films below 20,000 IMDb votes never appear — a puzzle nobody could solve is
+worse than no puzzle. Solve rates are recorded per puzzle in `puzzle_stats`, so
+a generator producing something under 15% or over 95% can be spotted and tuned.
+When the corpus cannot make a fair puzzle, the generator raises `NotEnoughData`
+and the hub says so, rather than shipping something broken.
+
+Every game has a **floor**: bombing all four still pays CR 2.00. Being bad at
+film trivia should not exclude you from the market — the market is the game and
+the puzzles are the way in.
+
+`UNIQUE(user_id, game, on_date)` is the anti-replay mechanism: a day's puzzle
+pays exactly once, whatever anyone does with the form.
+
+### On fixture data
+
+Six Degrees reports itself unavailable, and it is right to. The 25 fixture
+careers give a cast web whose largest connected group is four people. It needs
+the real backfill; its generator is proved against a synthetic dense corpus in
+`tests/test_games.py`.

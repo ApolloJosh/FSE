@@ -63,6 +63,9 @@ def _static_dir() -> Path:
 
 app.mount("/static", StaticFiles(directory=_static_dir()), name="static")
 
+from .games.routes import router as games_router      # noqa: E402
+app.include_router(games_router)
+
 
 # --------------------------------------------------------------------- market
 @app.get("/", response_class=HTMLResponse)

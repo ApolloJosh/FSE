@@ -84,3 +84,29 @@ CREATE TABLE IF NOT EXISTS dividends (
   amount        INTEGER NOT NULL,
   PRIMARY KEY (quarter, user_id)
 );
+
+-- Phase 3: the daily games.
+-- One row per player per game per day. The UNIQUE constraint is the whole
+-- anti-replay mechanism: a day's puzzle pays exactly once.
+CREATE TABLE IF NOT EXISTS plays (
+  id            INTEGER PRIMARY KEY,
+  user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  game          TEXT    NOT NULL,
+  on_date       TEXT    NOT NULL,
+  state         TEXT    NOT NULL DEFAULT '{}',   -- JSON: progress so far
+  fraction      REAL    NOT NULL DEFAULT 0,
+  payout        INTEGER NOT NULL DEFAULT 0,
+  done          INTEGER NOT NULL DEFAULT 0,
+  at            TEXT    NOT NULL,
+  UNIQUE (user_id, game, on_date)
+);
+CREATE INDEX IF NOT EXISTS plays_board ON plays(on_date, game);
+
+-- Solve rates, so an unfair puzzle can be spotted and the generator tuned.
+CREATE TABLE IF NOT EXISTS puzzle_stats (
+  game          TEXT    NOT NULL,
+  on_date       TEXT    NOT NULL,
+  attempts      INTEGER NOT NULL DEFAULT 0,
+  solves        INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (game, on_date)
+);

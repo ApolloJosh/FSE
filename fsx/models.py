@@ -23,6 +23,10 @@ class Credit:
     is_voice: bool = False
     is_uncredited: bool = False
     is_director: bool = False
+    # A stand-in for the long tail of a filmography in the fixture set. It
+    # scores like a credit but is not a real film, so the puzzle games must
+    # never show it to a player. Always False on data from a real backfill.
+    placeholder: bool = False
     role_weight_override: Optional[float] = None
     ensemble_weight_sum: Optional[float] = None  # all scored RW in this film
 

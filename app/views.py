@@ -49,6 +49,7 @@ def chrome(title: str, body: str, user: sqlite3.Row | None, depth: int = 0) -> s
     up = "../" * depth
     if user:
         right = (f'<span class="balance">CR {money(db.credits(user["credits"]))}</span>'
+                 f'<a href="{up}play">Play</a>'
                  f'<a href="{up}portfolio">Portfolio</a>'
                  f'<a href="{up}leaderboards">Leaderboards</a>'
                  f'<a href="{up}about">How prices work</a>'

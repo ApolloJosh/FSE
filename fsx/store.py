@@ -17,7 +17,7 @@ from .models import Award, Credit, Person
 SCHEMA = 1
 CREDIT_FIELDS = [
     "title", "medium", "billing_order", "cast_size", "runtime_share",
-    "series_role", "is_voice", "is_uncredited", "is_director",
+    "series_role", "is_voice", "is_uncredited", "is_director", "placeholder",
     "role_weight_override", "ensemble_weight_sum",
     "rt_critics", "rt_audience", "imdb", "imdb_votes", "metascore", "letterboxd",
     "budget", "worldwide_gross", "streaming_viewers_28d",

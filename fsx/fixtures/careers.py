@@ -87,6 +87,7 @@ def build(name: str, headline: list[H], awards: list[tuple] = (),
         for i in range(filler.count):
             year = filler.from_year + round(i * span / max(filler.count - 1, 1))
             credit = Credit(
+                placeholder=True,
                 title=f"{name} filler {i + 1}",
                 release_date=date(int(year), 7, 1),
                 is_director=is_director,

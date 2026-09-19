@@ -106,14 +106,24 @@ def scout(conn: sqlite3.Connection, limit: int = 50) -> list[Entry]:
 
 
 def minigames(conn: sqlite3.Connection, limit: int = 50) -> list[Entry]:
-    """Phase 3. Empty until the daily games exist."""
-    return []
+    """Cumulative minigame earnings this month. Resets monthly, so a newcomer
+    is never permanently behind on the one board that rewards showing up."""
+    from datetime import datetime
+    month = (on_month := date.today().strftime("%Y-%m"))
+    names = _named(conn)
+    rows = conn.execute(
+        "SELECT user_id, SUM(payout) AS total, COUNT(*) AS games FROM plays"
+        " WHERE done = 1 AND on_date LIKE ? GROUP BY user_id"
+        " ORDER BY total DESC LIMIT ?", (f"{month}%", limit)).fetchall()
+    return [Entry(i, r["user_id"], names.get(r["user_id"], "?"),
+                  db.credits(r["total"]), f"{r['games']} games")
+            for i, r in enumerate(rows, 1)]
 
 
 BOARDS = {
     "season": ("Season", "Percentage portfolio growth this season", season, "pct"),
     "all-time": ("All-time", "Total portfolio value", all_time, "credits"),
     "scout": ("Scout", "Best gain on a position bought under CR 10.00", scout, "pct"),
-    "minigame": ("Minigame", "Arrives with the daily games in Phase 3",
-                 minigames, "score"),
+    "minigame": ("Minigame", "Credits earned from the daily games this month",
+                 minigames, "credits"),
 }

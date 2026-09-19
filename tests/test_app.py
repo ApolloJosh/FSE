@@ -180,3 +180,85 @@ def test_a_player_name_is_escaped_on_the_leaderboard(client):
     html = c.get("/leaderboards?board=all-time").text
     assert "<script>alert(1)</script>" not in html
     assert "&lt;script&gt;" in html
+
+
+# --------------------------------------------------------------- daily games
+def test_the_games_hub_needs_an_account(client):
+    c, _ = client
+    r = c.get("/play", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/signin"
+
+
+def test_the_hub_lists_today_for_a_signed_in_player(client):
+    c, conn = client
+    sign_in(c, conn)
+    html = c.get("/play").text
+    assert "Today's games" in html
+    assert "The Ladder" in html and "Box Office Blind" in html
+
+
+def test_a_game_page_renders_and_starts_a_play(client):
+    c, conn = client
+    user_id = sign_in(c, conn)
+    assert c.get("/play/ladder").status_code == 200
+    row = conn.execute("SELECT * FROM plays WHERE user_id = ? AND game = 'ladder'",
+                       (user_id,)).fetchone()
+    assert row is not None and row["done"] == 0
+
+
+def test_submitting_a_game_without_csrf_is_refused(client):
+    c, conn = client
+    user_id = sign_in(c, conn)
+    c.get("/play/cast-gap")
+    r = c.post("/play/cast-gap", data={"csrf": "forged", "answer": "x"})
+    assert r.status_code == 403
+    row = conn.execute("SELECT done FROM plays WHERE user_id = ? AND game = 'cast-gap'",
+                       (user_id,)).fetchone()
+    assert row["done"] == 0
+
+
+def test_playing_a_game_pays_credits(client):
+    c, conn = client
+    user_id = sign_in(c, conn)
+    before = db.user(conn, user_id)["credits"]
+    token = _csrf(c, "/play/cast-gap")
+    r = c.post("/play/cast-gap", data={"csrf": token, "answer": "definitely wrong",
+                                       "action": "guess"}, follow_redirects=False)
+    assert r.status_code == 303
+    # a wrong first guess leaves one more, so play it out
+    c.post("/play/cast-gap", data={"csrf": token, "answer": "still wrong",
+                                   "action": "guess"})
+    row = conn.execute("SELECT * FROM plays WHERE user_id = ? AND game = 'cast-gap'",
+                       (user_id,)).fetchone()
+    assert row["done"] == 1
+    assert db.user(conn, user_id)["credits"] == before + row["payout"]
+
+
+def test_a_finished_game_cannot_be_replayed_for_more_credits(client):
+    c, conn = client
+    user_id = sign_in(c, conn)
+    token = _csrf(c, "/play/box-office")
+    data = {"csrf": token, "action": "guess"}
+    import re
+    html = c.get("/play/box-office").text
+    keys = re.findall(r'name="rank_([^"]+)"', html)
+    for i, key in enumerate(keys, 1):
+        data[f"rank_{key}"] = str(i)
+    c.post("/play/box-office", data=data)
+    after_first = db.user(conn, user_id)["credits"]
+    c.post("/play/box-office", data=data)
+    assert db.user(conn, user_id)["credits"] == after_first
+
+
+def test_an_unavailable_game_sends_you_back_with_a_reason(client):
+    c, conn = client
+    sign_in(c, conn)
+    r = c.get("/play/six-degrees", follow_redirects=False)
+    assert r.status_code == 303 and "/play?msg=" in r.headers["location"]
+
+
+def test_an_unknown_game_is_not_a_crash(client):
+    c, conn = client
+    sign_in(c, conn)
+    r = c.get("/play/../../etc/passwd", follow_redirects=False)
+    assert r.status_code in (303, 404)
