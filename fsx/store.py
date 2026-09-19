@@ -17,7 +17,8 @@ from .models import Award, Credit, Person
 SCHEMA = 1
 CREDIT_FIELDS = [
     "title", "medium", "billing_order", "cast_size", "runtime_share",
-    "series_role", "is_voice", "is_uncredited", "is_director", "placeholder", "release_kind", "digital_window_days",
+    "series_role", "is_voice", "is_uncredited", "is_director", "placeholder",
+    "appearance", "release_kind", "digital_window_days",
     "role_weight_override", "ensemble_weight_sum",
     "rt_critics", "rt_audience", "imdb", "imdb_votes", "metascore", "letterboxd",
     "budget", "worldwide_gross", "streaming_viewers_28d",
@@ -37,6 +38,8 @@ def credit_to_dict(credit: Credit) -> dict[str, Any]:
     out = {f: getattr(credit, f) for f in CREDIT_FIELDS}
     out["release_date"] = _d(credit.release_date)
     out["imdb_id"] = getattr(credit, "imdb_id", None)
+    if out.get("appearance") == "role":
+        del out["appearance"]        # the default, on four credits in five
     return {k: v for k, v in out.items() if v is not None}
 
 

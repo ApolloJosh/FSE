@@ -323,6 +323,31 @@ The modifier ramps rather than steps, so nothing hinges on a film scoring 39
 instead of 41, and a film with no reviews on file is judged neither way.
 
 
+## Not every credit is a performance
+
+A fifth of the corpus is not: documentary interviews, making-of featurettes,
+awards-show appearances, and old clips spliced into someone else's film. TMDB
+says which in the character field.
+
+| character | what it is | cap |
+| --- | --- | --- |
+| `Ethan Hunt` | a part | 1.00 |
+| `Narrator (voice)` | real work, but not carrying a film | 0.40 |
+| `Self` | you turned up | 0.10 |
+| `Self (archive footage)` | you were not there | 0.00 |
+
+Scored as parts, these made a documentary *about* Tom Cruise read as a film he
+led, and gave him a 47-minute IMAX documentary he narrated as his second
+biggest career event. Archive footage also counted as "having something out",
+which held off idle decay for people who had not worked in years.
+
+The same distinction fixes something larger. `--max-credits` counts work now,
+not lines on a filmography — it used to take the most recent N of everything,
+and for a veteran most of those are documentaries about them. Harrison Ford's
+window reached back only to 2010, so *Raiders*, *Witness* and *Air Force One*
+were never fetched at all. Across the roster that dropped **4,803 real films**,
+including 100 of De Niro's 123.
+
 ## Streaming and limited releases
 
 TMDB's `/movie/{id}/release_dates` tags every release by type — premiere,

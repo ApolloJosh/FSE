@@ -149,3 +149,27 @@ def test_the_api_payload_matches_the_pages(built):
         assert (www / "stock" / f"{stock['slug']}.html").exists()
         assert stock["price"] >= 2.50
         assert len(stock["history"]) > 1
+
+
+def test_every_credit_field_survives_a_round_trip(tmp_path):
+    """A field added to Credit and not to CREDIT_FIELDS is dropped on save,
+    silently, and the engine then scores a snapshot that is missing it. That
+    happened to `appearance`, and nothing failed until the ranking did not
+    move."""
+    import dataclasses
+    from datetime import date
+
+    from fsx.models import Credit, Person
+    from fsx.store import CREDIT_FIELDS, load, save
+
+    ignore = {"release_date"}       # handled separately, not a plain field
+    declared = {f.name for f in dataclasses.fields(Credit)} - ignore
+    assert declared == set(CREDIT_FIELDS), (
+        "Credit fields not persisted: " + ", ".join(sorted(declared - set(CREDIT_FIELDS))))
+
+    credit = Credit(title="T", release_date=date(2024, 1, 1), appearance="narration",
+                    billing_order=0, cast_size=9, is_voice=True, budget=1e6)
+    path = tmp_path / "people.json"
+    save([Person(name="X", credits=[credit])], path)
+    back = load(path)[0][0].credits[0]
+    assert back.appearance == "narration" and back.is_voice and back.budget == 1e6

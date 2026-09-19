@@ -45,6 +45,24 @@ ROLE_NAMES = {
 }
 TV_ROLE_NAMES = {"regular": "Series regular", "recurring": "Recurring",
                  "guest": "Guest"}
+APPEARANCE_NAMES = {"narration": "Narrator", "self": "As themselves",
+                    "archive": "Archive footage"}
+# Not every line on a filmography is a performance. A fifth of the corpus is
+# not: documentary interviews, making-of featurettes, awards-show appearances,
+# and old clips spliced into someone else's film. Scored as parts, they gave
+# Tom Cruise a 47-minute IMAX documentary he narrated as his second-biggest
+# career event, and made a documentary ABOUT him read as a film he led.
+#
+# So an appearance is capped by what it actually was. Narration is real work
+# and counts; it is not carrying a film, so it cannot earn what carrying one
+# earns. Turning up as yourself counts for little. Archive footage is not work
+# at all - you were not there.
+APPEARANCE_CAPS = {
+    "role": 1.00,
+    "narration": 0.40,
+    "self": 0.10,
+    "archive": 0.00,
+}
 VOICE_MULTIPLIER = 0.85
 ENSEMBLE_WEIGHT_CAP = 3.0   # total scored role weight allowed per film
 

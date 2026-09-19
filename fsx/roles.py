@@ -51,10 +51,15 @@ def role_weight(credit: Credit) -> float:
     else:
         base = K.ROLE_WEIGHTS[classify(credit)]
 
+    cap = K.APPEARANCE_CAPS.get(credit.appearance, 1.0)
+    if cap <= 0.0:
+        return 0.0          # archive footage is not a credit
+    base = min(base, cap)
+
     if base == 0.0:
         return 0.0
-    if credit.is_voice:
-        base *= K.VOICE_MULTIPLIER
+    if credit.is_voice and credit.appearance == "role":
+        base *= K.VOICE_MULTIPLIER      # narration is already capped as voice
     return base * ensemble_scale(credit)
 
 
@@ -68,6 +73,8 @@ def ensemble_scale(credit: Credit) -> float:
 
 def role_name(credit: Credit) -> str:
     """The part, as a person would say it. Drives the why-it-moved panel."""
+    if credit.appearance in K.APPEARANCE_NAMES:
+        return K.APPEARANCE_NAMES[credit.appearance]
     if credit.is_director:
         return "Director"
     if credit.medium == "series_season":

@@ -96,7 +96,10 @@ def value_person(person: Person, as_of: date | None = None) -> Valuation:
     as_of = as_of or date.today()
     contributions = all_contributions(person, as_of)
 
-    released = [c.release_date for c in person.credits if c.release_date <= as_of]
+    # Only work counts as work: an old clip of you in someone else's
+    # documentary is not "having something out", and must not hold off decay.
+    released = [c.release_date for c in person.credits
+                if c.release_date <= as_of and roles.role_weight(c) > 0]
     years_idle = decay.idle_years(max(released) if released else None, as_of,
                                   person.next_release)
 

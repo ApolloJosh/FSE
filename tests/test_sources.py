@@ -99,3 +99,29 @@ def test_a_permanent_entry_is_untouched(tmp_path):
     cache = Cache("t", tmp_path)
     cache.set("movie:9", {"budget": 1})
     assert cache.get("movie:9") == {"budget": 1}
+
+
+# ------------------------------------------------------------- the fetch window
+def test_the_credit_window_counts_work_not_filmography_lines():
+    """The window used to take the most recent N of everything, and for a
+    veteran most of those are documentaries about them - Harrison Ford's
+    reached back only to 2010, so Raiders was never fetched."""
+    from fsx.sources.tmdb import appearance_of
+
+    cast = [
+        {"title": "Doc About Him", "character": "Self", "release_date": "2024-01-01"},
+        {"title": "Clips Of Him", "character": "Self (archive footage)",
+         "release_date": "2023-01-01"},
+        {"title": "Raiders", "character": "Indiana Jones", "release_date": "1981-06-12"},
+        {"title": "A Documentary", "character": "Narrator (voice)",
+         "release_date": "2022-01-01"},
+    ]
+    work = [e for e in cast
+            if appearance_of(e.get("character")) in ("role", "narration")]
+    assert [e["title"] for e in work] == ["Raiders", "A Documentary"]
+
+
+def test_an_archivist_is_a_part_not_archive_footage():
+    from fsx.sources.tmdb import appearance_of
+    assert appearance_of("Archivist") == "role"
+    assert appearance_of("Self (archive footage)") == "archive"

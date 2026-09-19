@@ -8,6 +8,7 @@ a guess - reception and awards carry those credits instead.
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 from typing import Any, Optional
 
@@ -15,6 +16,23 @@ from ..models import Credit, Person
 from .base import HTTPSource
 
 PRINCIPAL_CAST = 20      # how deep a billed cast we treat as "principal"
+
+
+def appearance_of(character: Optional[str]) -> str:
+    """What kind of appearance TMDB is describing, from the character field.
+
+    "Self - Narrator (voice)", "Self (archive footage)", "Self", "Ethan Hunt".
+    A fifth of the corpus is one of the first three, and scoring those as parts
+    is how a documentary about someone reads as a film they led.
+    """
+    text = (character or "").lower()
+    if "archive" in text:
+        return "archive"
+    if "narrat" in text:
+        return "narration"
+    if re.match(r"^\s*(self|himself|herself|themself|themselves)\b", text):
+        return "self"
+    return "role"
 
 
 def _parse_date(value: Optional[str]) -> Optional[date]:
@@ -120,6 +138,16 @@ class TMDB(HTTPSource):
             entries = [e for e in entries if e.get("job") == "Director"]
 
         entries = [e for e in entries if _parse_date(e.get("release_date"))]
+
+        # max_credits counts WORK, not lines on a filmography. It used to take
+        # the most recent N of everything, and for a veteran most of those are
+        # documentaries about them: Harrison Ford's window reached back only to
+        # 2010, so Raiders, Witness and Air Force One were never fetched at
+        # all, and he priced below people half his career. Across the roster
+        # that dropped 4,803 real films - 100 of De Niro's 123.
+        if not as_director:
+            entries = [e for e in entries
+                       if appearance_of(e.get("character")) in ("role", "narration")]
         entries.sort(key=lambda e: e["release_date"], reverse=True)
 
         for entry in entries[:max_credits]:
@@ -138,6 +166,8 @@ class TMDB(HTTPSource):
                 cast_size=None if as_director else self.movie_cast_size(entry["id"]),
                 budget=detail.get("budget") or None,
                 worldwide_gross=detail.get("revenue") or None,
+                appearance=("role" if as_director
+                            else appearance_of(entry.get("character"))),
             )
             credit.release_kind, credit.digital_window_days = \
                 self.release_shape(entry["id"])

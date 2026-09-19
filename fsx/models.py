@@ -22,6 +22,10 @@ class Credit:
     series_role: Optional[str] = None        # regular | recurring | guest
     is_voice: bool = False
     is_uncredited: bool = False
+    # role | narration | self | archive - see constants.APPEARANCE_CAPS. TMDB
+    # says which in the character field, and it is the difference between a
+    # part and having been interviewed about one.
+    appearance: str = "role"
     is_director: bool = False
     # A stand-in for the long tail of a filmography in the fixture set. It
     # scores like a credit but is not a real film, so the puzzle games must
