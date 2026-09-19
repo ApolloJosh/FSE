@@ -280,3 +280,19 @@ def test_films_either_side_of_the_pandemic_are_judged_normally():
 def test_an_explicit_override_beats_every_inference():
     c = credit(release_kind="limited", bop_override=500.0, scale_override=1.0)
     assert boxoffice.evaluate(c).bop == 500.0
+
+
+def test_a_zero_score_still_says_why():
+    """streaming, pandemic and no-budget were all being relabelled
+    'break-even', which threw away the only useful thing to show."""
+    from datetime import date as _d
+    cases = {
+        "streaming": credit(budget=159e6, worldwide_gross=8e6, release_kind="limited"),
+        "no budget": credit(worldwide_gross=50e6, release_kind="wide"),
+    }
+    for want, c in cases.items():
+        cp, result = boxoffice.box_office_cp(c, 1.0)
+        assert cp == 0.0 and result.verdict == want
+    pandemic = Credit(title="t", release_date=_d(2020, 7, 1), budget=100e6,
+                      worldwide_gross=20e6, release_kind="wide")
+    assert boxoffice.box_office_cp(pandemic, 1.0)[1].verdict == "pandemic"

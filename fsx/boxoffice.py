@@ -86,7 +86,12 @@ def evaluate(credit: Credit) -> BoxOfficeResult:
         return BoxOfficeResult(multiple(credit), 0.0, 1.0, "none", "streaming")
     if in_pandemic_window(credit):
         return BoxOfficeResult(multiple(credit), 0.0, 1.0, "none", "pandemic")
-    return _evaluate_theatrical(credit)
+
+    result = _evaluate_theatrical(credit)
+    if result.bop == 0 and not result.verdict:
+        why = "no budget" if multiple(credit) is None else "break-even"
+        result = result._replace(verdict=why)
+    return result
 
 
 def _evaluate_theatrical(credit: Credit) -> BoxOfficeResult:
@@ -141,6 +146,12 @@ def box_office_cp(credit: Credit, weight: float) -> tuple[float, BoxOfficeResult
     from .reception import reception_score
 
     result = evaluate(credit)
+    if result.bop == 0:
+        # Nothing to modify, and evaluate() already said why - streaming,
+        # pandemic, no budget on file. Overwriting that with "break-even"
+        # threw away the only useful thing the panel had to show.
+        return 0.0, result
+
     scored = reception_score(credit)
     factor, verdict = reception_modifier(result.bop, scored.score if scored else None)
     result = result._replace(bop=result.bop * factor, verdict=verdict)
