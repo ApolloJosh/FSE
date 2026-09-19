@@ -141,28 +141,62 @@ SELECT ?kind ?awardLabel ?date WHERE {{
         return _dedupe(out)
 
     # ------------------------------------------------------------------- films
-    def film_scores(self, imdb_film_id: str) -> dict[str, float]:
-        """Review scores for one film, keyed to Credit field names."""
-        sparql = f"""
-SELECT ?score ?byLabel WHERE {{
-  ?f wdt:P345 "{imdb_film_id}" ; p:P444 ?s .
-  ?s ps:P444 ?score . OPTIONAL {{ ?s pq:P447 ?by }}
+    def films_info(self, imdb_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Review scores AND the exact English Wikipedia article, for many films
+        in one query.
+
+        The article title matters more than it looks. Matching a film to
+        Wikipedia by its bare title is badly wrong - a first attempt resolved
+        1 of 10 correctly and pulled money figures off disambiguation pages, a
+        TV special and an article about Indonesian folk theatre. The sitelink
+        from the film's own Wikidata entity is exact.
+        """
+        ids = [i for i in dict.fromkeys(imdb_ids) if i]
+        if not ids:
+            return {}
+
+        out: dict[str, dict[str, Any]] = {}
+        for chunk in _chunks(ids, 60):
+            values = " ".join(f'"{i}"' for i in chunk)
+            sparql = f"""
+SELECT ?imdb ?article ?score ?byLabel WHERE {{
+  VALUES ?imdb {{ {values} }}
+  ?f wdt:P345 ?imdb .
+  OPTIONAL {{ ?article schema:about ?f ; schema:isPartOf <https://en.wikipedia.org/> }}
+  OPTIONAL {{ ?f p:P444 ?s . ?s ps:P444 ?score . OPTIONAL {{ ?s pq:P447 ?by }} }}
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
 }}"""
-        out: dict[str, float] = {}
-        for row in self.query(sparql, f"scores:{imdb_film_id}"):
-            source = row.get("byLabel", {}).get("value", "")
-            value = parse_score(row["score"]["value"], source)
-            if value is None:
-                continue
-            lowered = source.lower()
-            if "rotten tomatoes" in lowered:
-                out.setdefault("rt_critics", value)
-            elif "metacritic" in lowered:
-                out.setdefault("metascore", value)
-            elif "imdb" in lowered:
-                out.setdefault("imdb", value)
+            key = "films:" + ",".join(sorted(chunk))
+            for row in self.query(sparql, key):
+                imdb_id = row["imdb"]["value"]
+                entry = out.setdefault(imdb_id, {"article": None, "scores": {}})
+
+                if row.get("article") and not entry["article"]:
+                    entry["article"] = _article_title(row["article"]["value"])
+
+                if row.get("score"):
+                    source = row.get("byLabel", {}).get("value", "")
+                    value = parse_score(row["score"]["value"], source)
+                    if value is None:
+                        continue
+                    lowered = source.lower()
+                    if "rotten tomatoes" in lowered:
+                        entry["scores"].setdefault("rt_critics", value)
+                    elif "metacritic" in lowered:
+                        entry["scores"].setdefault("metascore", value)
+                    elif "imdb" in lowered:
+                        entry["scores"].setdefault("imdb", value)
         return out
+
+
+def _chunks(items: list[str], size: int):
+    for i in range(0, len(items), size):
+        yield items[i:i + size]
+
+
+def _article_title(url: str) -> str:
+    from urllib.parse import unquote
+    return unquote(url.split("/wiki/", 1)[-1]).replace("_", " ")
 
 
 def _parse_date(value: Optional[str]) -> Optional[date]:

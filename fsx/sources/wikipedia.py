@@ -65,6 +65,15 @@ def parse_money(raw: Optional[str]) -> Optional[float]:
     return amount if amount > 1000 else None      # a bare "$100" is not a budget
 
 
+def is_film_article(wikitext: str) -> bool:
+    """Belt and braces on top of the sitelink: only read money off a film.
+
+    A title match once landed on {{Infobox dance}} for an article about
+    Indonesian folk theatre, and on several disambiguation pages.
+    """
+    return bool(re.search(r"\{\{\s*Infobox\s+film\b", wikitext, re.IGNORECASE))
+
+
 def parse_infobox(wikitext: str) -> dict[str, str]:
     """Flatten an infobox into {field: raw value}, keeping multi-line lists."""
     fields: dict[str, str] = {}
@@ -125,9 +134,13 @@ class Wikipedia(HTTPSource):
         return text or None
 
     def film_money(self, title: str) -> dict[str, Optional[float]]:
-        """Budget and worldwide gross for one film, or an empty dict."""
+        """Budget and worldwide gross for one film, or an empty dict.
+
+        `title` must be an exact article title resolved from the film's Wikidata
+        sitelink, never a bare film name - see Wikidata.films_info for why.
+        """
         wikitext = self.lead_wikitext(title)
-        if not wikitext:
+        if not wikitext or not is_film_article(wikitext):
             return {}
         fields = parse_infobox(wikitext)
         out = {}

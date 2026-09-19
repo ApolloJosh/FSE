@@ -130,48 +130,79 @@ def cmd_backfill(args) -> int:
     people: list[Person] = []
     stats = {"omdb": 0, "wikidata_scores": 0, "wikipedia_money": 0, "awards": 0}
 
+    def attempt(label: str, fn, *a, **kw):
+        """Every external call is individually survivable.
+
+        The first run lost all three people because one bad Wikipedia lookup
+        raised inside the credit loop and aborted the whole person - awards
+        never ran, nothing was ranked, no CSV was written. A person missing one
+        film's box office is worth far more than no person at all.
+        """
+        try:
+            return fn(*a, **kw)
+        except Exception as exc:                      # noqa: BLE001
+            failures.append(f"{label}: {type(exc).__name__}")
+            return None
+
+    failures: list[str] = []
+
     for i, raw in enumerate(names, 1):
         as_director = raw.endswith("*")
         name = raw.rstrip("*").strip()
         print(f"[{i}/{len(names)}] {name}", file=sys.stderr)
-        try:
-            person = tmdb.build_person(name, as_director=as_director,
-                                       max_credits=args.max_credits)
-            if person is None:
-                print("    not found on TMDB, skipped", file=sys.stderr)
-                continue
 
-            for credit in person.credits:
-                if omdb.available and not args.no_omdb:
-                    omdb.enrich(credit)
-                    if credit.imdb is not None:
-                        stats["omdb"] += 1
+        person = attempt("tmdb.build_person", tmdb.build_person, name,
+                         as_director=as_director, max_credits=args.max_credits)
+        if person is None:
+            print("    no TMDB record, skipped", file=sys.stderr)
+            continue
 
-                imdb_id = getattr(credit, "imdb_id", None)
-                if wikidata and imdb_id and credit.rt_critics is None:
-                    for field, value in wikidata.film_scores(imdb_id).items():
-                        if getattr(credit, field, None) is None:
-                            setattr(credit, field, value)
-                            stats["wikidata_scores"] += 1
+        # Awards first: they are the single most valuable input, and they used
+        # to sit after the credit loop where a credit failure starved them.
+        if wikidata and person.tmdb_id:
+            person_imdb = attempt("tmdb.person_imdb_id", tmdb.person_imdb_id,
+                                  person.tmdb_id)
+            qid = attempt("wikidata.qid", wikidata.qid_for_imdb,
+                          person_imdb) if person_imdb else None
+            if qid:
+                awards = attempt("wikidata.awards", wikidata.awards, qid) or []
+                person.awards = awards
+                stats["awards"] += len(awards)
 
-                # TMDB's money thins out badly below ~$10M; Wikipedia's infobox
-                # carried a budget for 87% of a sample and a gross for 93%.
-                if wikipedia and (credit.budget is None or credit.worldwide_gross is None):
-                    for field, value in wikipedia.film_money(credit.title).items():
-                        if getattr(credit, field, None) is None:
-                            setattr(credit, field, value)
-                            stats["wikipedia_money"] += 1
+        # One batched Wikidata call per person resolves review scores and the
+        # exact Wikipedia article for every credit at once.
+        info = {}
+        if wikidata:
+            ids = [getattr(c, "imdb_id", None) for c in person.credits]
+            info = attempt("wikidata.films_info", wikidata.films_info, ids) or {}
 
-            if wikidata and person.tmdb_id:
-                person_imdb = tmdb.person_imdb_id(person.tmdb_id)
-                qid = wikidata.qid_for_imdb(person_imdb) if person_imdb else None
-                if qid:
-                    person.awards = wikidata.awards(qid)
-                    stats["awards"] += len(person.awards)
+        for credit in person.credits:
+            imdb_id = getattr(credit, "imdb_id", None)
 
-            people.append(person)
-        except Exception as exc:                      # noqa: BLE001
-            print(f"    failed: {exc}", file=sys.stderr)
+            if omdb.available and not args.no_omdb:
+                attempt(f"omdb:{credit.title}", omdb.enrich, credit)
+                if credit.imdb is not None:
+                    stats["omdb"] += 1
+
+            entry = info.get(imdb_id or "", {})
+            for field, value in (entry.get("scores") or {}).items():
+                if getattr(credit, field, None) is None:
+                    setattr(credit, field, value)
+                    stats["wikidata_scores"] += 1
+
+            # TMDB's money thins out badly below ~$10M; Wikipedia's infobox
+            # carried a budget for 87% of a sample and a gross for 93%.
+            article = entry.get("article")
+            if wikipedia and article and (credit.budget is None
+                                          or credit.worldwide_gross is None):
+                money = attempt(f"wikipedia:{article}",
+                                wikipedia.film_money, article) or {}
+                for field, value in money.items():
+                    if getattr(credit, field, None) is None:
+                        setattr(credit, field, value)
+                        stats["wikipedia_money"] += 1
+
+        people.append(person)
 
     if not people:
         print("Nothing to rank.", file=sys.stderr)
@@ -186,6 +217,12 @@ def cmd_backfill(args) -> int:
           f"{stats['wikidata_scores']} scores from Wikidata, "
           f"{stats['wikipedia_money']} money fields from Wikipedia, "
           f"{stats['awards']} awards from Wikidata.")
+
+    if failures:
+        from collections import Counter
+        tally = Counter(f.split(":")[0] for f in failures)
+        print(f"\n{len(failures)} calls failed and were skipped: "
+              + ", ".join(f"{k} x{v}" for k, v in tally.most_common()))
     return 0
 
 
