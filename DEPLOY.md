@@ -6,28 +6,51 @@ authenticates on your machine and stays there.
 ## Once
 
 ```bash
-brew install flyctl          # or: curl -L https://fly.io/install.sh | sh
+brew install flyctl
 fly auth login
+```
+
+No Homebrew? Use Fly's installer instead, on a line of its own:
+
+```bash
+curl -L https://fly.io/install.sh | sh
 ```
 
 ## First deploy
 
+Every line below is safe to paste on its own. Nothing here has a trailing
+comment: zsh does not strip one from a line you type by hand, so `brew install
+flyctl  # or ...` hands brew the rest of the line as arguments and fails on
+`-L`.
+
+**1. Pick a name.** It has to be unique across the whole of fly.io. Edit the
+`app = ` line in `fly.toml` first, then use the same name here.
+
 ```bash
 cd ~/Documents/Claude/Projects/Film\ Stock\ Exchange
 
-# 1. Pick a name. It has to be unique across all of fly.io, so edit the
-#    `app = ` line in fly.toml first, then:
 fly launch --no-deploy --copy-config --name YOUR-APP-NAME
+```
 
-# 2. The database volume. 1GB is far more than this needs.
+**2. The database volume.** 1GB is far more than this needs, and it is what
+keeps portfolios alive across deploys.
+
+```bash
 fly volumes create market_data --size 1 --region iad
+```
 
-# 3. Secrets. These never enter the repo or this chat.
+**3. Secrets.** These never enter the repo or a chat.
+
+```bash
 fly secrets set SESSION_SECRET=$(openssl rand -hex 32)
 fly secrets set FSX_ENV=production
-fly secrets set TMDB_READ_ACCESS_TOKEN=... OMDB_API_KEY=...
+fly secrets set TMDB_READ_ACCESS_TOKEN=PASTE_YOURS
+fly secrets set OMDB_API_KEY=PASTE_YOURS
+```
 
-# 4. Ship it.
+**4. Ship it.**
+
+```bash
 fly deploy
 ```
 
@@ -48,7 +71,7 @@ fly ssh console -C "python -m app.jobs seed --months 24"
 Then check it:
 
 ```bash
-fly open                     # the market
+fly open
 curl https://YOUR-APP-NAME.fly.dev/healthz
 ```
 
@@ -99,7 +122,7 @@ on the next request, so a quiet week costs nothing.
 ```bash
 fly logs
 fly status
-fly ssh console -C "python -m app.jobs mark"      # force a repricing
+fly ssh console -C "python -m app.jobs mark"
 ```
 
 A boot loop with `SESSION_SECRET is not set` is the app refusing to run with
