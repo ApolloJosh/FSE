@@ -51,9 +51,13 @@ that can be served from a CDN with no server at all.
 Copy `.env.example` to `.env` and fill in what you have:
 
 ```bash
-python3 -m fsx.cli backfill roster.txt --max-credits 60   # refetch + snapshot
-python3 -m app.jobs seed --force                          # rebuild prices
+make refresh          # refetch the roster from TMDB/OMDb, then rebuild prices
+make refresh CREDITS=60   # ...shallower and faster
 ```
+
+`CREDITS` counts **work** per person, not lines on a filmography. 100 reaches
+the 90th percentile of real filmographies; 60 truncates about 90 people. Every
+film already fetched is cached, so a run you stop resumes where it left off.
 
 `SESSION_SECRET` is required in production and the app refuses to boot without
 it, because a signed session cookie with a known key is a forgeable one. Google
