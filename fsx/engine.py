@@ -56,9 +56,16 @@ def all_contributions(person: Person, as_of: date | None = None) -> list[Contrib
 
 
 def _sum_decayed(contributions, as_of: date, age_rate: float) -> dict[str, float]:
-    """Decay every contribution by its age and bucket it by source."""
+    """Decay every contribution by its age and bucket it by source.
+
+    Events dated after `as_of` are skipped. Without that guard a valuation of a
+    past date silently counts work that had not happened yet - which made every
+    historical price too high and every price chart slope the wrong way.
+    """
     buckets = {"working": 0.0, "reception": 0.0, "box_office": 0.0, "award": 0.0}
     for c in contributions:
+        if c.event_date > as_of:
+            continue
         age = max(0.0, (as_of - c.event_date).days / 365.25)
         value = c.raw_cp * decay.age_factor(age, age_rate)
         if c.source in ("award", "snub"):
@@ -82,7 +89,9 @@ def value_person(person: Person, as_of: date | None = None) -> Valuation:
     as_of = as_of or date.today()
     contributions = all_contributions(person, as_of)
 
-    years_idle = decay.idle_years(person.last_release(), as_of, person.next_release)
+    released = [c.release_date for c in person.credits if c.release_date <= as_of]
+    years_idle = decay.idle_years(max(released) if released else None, as_of,
+                                  person.next_release)
 
     cp = 1000.0
     buckets: dict[str, float] = {}
@@ -98,7 +107,8 @@ def value_person(person: Person, as_of: date | None = None) -> Valuation:
         cp = new_cp
 
     tier, _, _ = decay.tier_for_cp(cp)
-    scored = sum(1 for c in person.credits if roles.role_weight(c) > 0)
+    scored = sum(1 for c in person.credits
+                 if roles.role_weight(c) > 0 and c.release_date <= as_of)
 
     return Valuation(
         person=person.name,
@@ -130,6 +140,8 @@ def explain(person: Person, as_of: date | None = None
 
     out = []
     for c in all_contributions(person, as_of):
+        if c.event_date > as_of:
+            continue
         age = max(0.0, (as_of - c.event_date).days / 365.25)
         out.append((c, c.raw_cp * decay.age_factor(age, age_rate) * valuation.idle_factor))
     return sorted(out, key=lambda pair: abs(pair[1]), reverse=True)

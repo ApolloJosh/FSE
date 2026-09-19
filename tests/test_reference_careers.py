@@ -160,3 +160,44 @@ def test_a_legend_fades_more_slowly_than_a_smaller_career():
     small = max(drops["ref: Journeyman"], drops["ref: Recognized"])
     assert small < drops["ref: A-List"] < drops["ref: Legend"]
     assert drops["ref: Legend"] - small > 0.15      # a clear separation
+
+
+# ------------------------------------------------- valuing a date in the past
+def test_a_past_valuation_ignores_work_that_had_not_happened_yet():
+    """Every historical price was too high and every chart sloped the wrong
+    way, because future credits were counted at full weight."""
+    from fsx.models import Person
+
+    early = credit(0.0, 1.0, 75, 300, 1.0)                 # released at AS_OF
+    later = Credit(title="future", release_date=AS_OF + timedelta(days=365),
+                   role_weight_override=1.0, reception_override=90,
+                   confidence_override=1.0, bop_override=660, scale_override=1.0)
+    person = Person("p", credits=[early, later])
+
+    now = value_person(person, AS_OF)
+    after = value_person(person, AS_OF + timedelta(days=366))
+    assert after.price > now.price
+    assert now.credits_scored == 1
+    assert after.credits_scored == 2
+
+
+def test_a_future_award_does_not_pay_early():
+    from fsx.models import Person
+    person = Person("p", credits=[credit(1.0, 1.0, 70, 120, 1.0)],
+                    awards=[Award("oscar_lead", 2027,
+                                  AS_OF + timedelta(days=200), won=True)])
+    assert value_person(person, AS_OF).award_cp == 0
+    assert value_person(person, AS_OF + timedelta(days=201)).award_cp > 0
+
+
+def test_a_price_chart_rises_through_a_breakout():
+    """The direct consequence: a career that got better must chart upward."""
+    from fsx.history import series
+    from fsx.models import Person
+    person = Person("riser", credits=[
+        credit(4.0, 0.30, 62, 0, 0.9),
+        credit(2.0, 0.80, 74, 120, 0.95),
+        credit(0.5, 1.00, 82, 450, 1.0)])
+    points = series(person, years=5, as_of=AS_OF)
+    assert points[-1].price > points[0].price
+    assert points[-1].price > points[len(points) // 2].price

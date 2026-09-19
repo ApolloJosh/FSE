@@ -5,8 +5,8 @@ publishes it. Prices move on awards, box office and critical reception, and on
 nothing else.
 
 **Phase 0** answered one question: does a film-literate person read the ranked
-list and find it defensible? **Phase 1** is this site — public prices, charts,
-and an explanation of every move. No accounts, no trading.
+list and find it defensible? **Phase 1** published the prices as a static site.
+**Phase 2** is the game: accounts, Credits, portfolios, trading and leaderboards.
 
 ## Run it
 
@@ -150,3 +150,62 @@ do not just move the number.
 - **Television is modelled but not fetched.**
 - **No re-rate job.** The two-year cult-classic reappraisal is specified in the
   design doc and not implemented here.
+
+
+## Phase 2: the game
+
+```bash
+cp .env.example .env          # add SESSION_SECRET and an OAuth pair
+python3 -m fsx.cli snapshot   # or backfill, for real data
+python3 -m app.jobs mark      # seed prices; run this nightly
+uvicorn app.main:app --reload
+```
+
+Sign-in is Google or GitHub. **No password is ever collected, hashed, reset or
+breached**, because none is ever asked for. Set either OAuth pair, or both; the
+sign-in page offers only the buttons that are configured.
+
+### Held value, the one idea worth understanding
+
+A position is not worth the market price. It is worth its **held value**, which
+starts at the entry price and then moves by each gain *scaled by how long you
+had already held when the gain happened*, and by each loss in full.
+
+| Held before the move | You realise |
+| --- | --- |
+| under 7 days | 40% |
+| 7–29 days | 70% |
+| 30–89 days | 100% |
+| 90–364 days | 115% |
+| 365+ days | 130% |
+
+Two people holding the same stock on the same night can end the night worth
+different amounts. Selling settles at held value, not at the quote — so a
+long-held winner pays out *above* the market price, and buying the morning after
+an Oscar pays well below it.
+
+### The rest of the rules
+
+1.5% fee both ways · 7-day settlement after every buy · no single position over
+5% of the portfolio · 10 free slots, then CR 20.00 each, escalating past 25 ·
+quarterly dividends of 0.5% plus 0.25% per full year held, capped at 2%.
+
+### The nightly job
+
+`python -m app.jobs mark` reprices the market from the snapshot and marks every
+position through the conviction ladder. It is **idempotent** — a day already
+marked is never marked twice, however many times it runs, because paying a gain
+twice is the one failure nobody would spot.
+
+### Money
+
+Credits are `INTEGER` centidollars everywhere. Nothing in this app puts money in
+a float, and every mutation runs in a transaction. `tests/test_trading.py`
+asserts that a user's balance always equals the sum of their ledger.
+
+### Deploying
+
+`Dockerfile` plus `render.yaml` (web service + nightly cron, both on a shared
+persistent disk) or `fly.toml`. SQLite lives on the mounted disk, never in the
+image — otherwise every deploy wipes every portfolio. OAuth callback URLs are
+`https://YOUR-HOST/auth/google/callback` and `/auth/github/callback`.

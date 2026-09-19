@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: film-stock-exchange
+    runtime: docker
+    plan: starter            # a persistent disk needs a paid instance
+    healthCheckPath: /healthz
+    disk:
+      name: market-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: FSX_DB
+        value: /data/market.db
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+
+  # The nightly job: reprice the market and mark every position.
+  - type: cron
+    name: nightly-mark
+    runtime: docker
+    schedule: "25 9 * * *"
+    dockerCommand: python -m app.jobs mark
+    disk:
+      name: market-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: FSX_DB
+        value: /data/market.db

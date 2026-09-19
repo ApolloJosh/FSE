@@ -7,6 +7,8 @@
 .pytest_cache/
 .venv/
 __pycache__/
+data/preview.db*
 out/
+preview/
 site/
 venv/

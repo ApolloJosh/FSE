@@ -1,0 +1,29 @@
+app = "film-stock-exchange"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  FSX_DB = "/data/market.db"
+  FSX_ENV = "production"
+
+[[mounts]]
+  source = "market_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[http_service.checks]]
+  grace_period = "10s"
+  interval = "30s"
+  method = "GET"
+  path = "/healthz"
+
+# fly.io runs the nightly job as a scheduled machine:
+#   fly machine run . --schedule daily --command "python -m app.jobs mark"
