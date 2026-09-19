@@ -124,8 +124,32 @@ def test_scale_keeps_a_blockbuster_ahead_of_a_lucky_cheapie():
     assert boxoffice.scale_factor(1e7) < boxoffice.scale_factor(1e9)
 
 
-def test_no_budget_means_no_box_office_score_rather_than_a_guess():
-    result = boxoffice.evaluate(credit(worldwide_gross=50e6))
+def test_a_gross_with_no_budget_is_still_worth_something():
+    """Two thirds of the corpus has no budget on file and Wikipedia has not got
+    one either. Scoring those zero says a $400M release never happened."""
+    result = boxoffice.evaluate(credit(worldwide_gross=400e6, release_kind="wide"))
+    assert result.basis == "gross only" and result.bop > 0
+
+
+def test_a_gross_with_no_budget_can_never_be_a_flop():
+    """Calling something a flop requires knowing what it cost."""
+    for gross in (6e6, 30e6, 74e6, 400e6, 2e9):
+        result = boxoffice.evaluate(credit(worldwide_gross=gross,
+                                           release_kind="wide"))
+        assert result.bop >= 0
+
+
+def test_the_gross_only_ladder_pays_less_than_the_real_one():
+    """The multiple is unknown, so the rung is a guess about scale."""
+    known = boxoffice.evaluate(credit(budget=40e6, worldwide_gross=400e6,
+                                      release_kind="wide"))
+    guessed = boxoffice.evaluate(credit(worldwide_gross=400e6,
+                                        release_kind="wide"))
+    assert 0 < guessed.bop < known.bop
+
+
+def test_a_small_release_with_no_budget_is_not_read_as_a_wide_one():
+    result = boxoffice.evaluate(credit(worldwide_gross=8e6))
     assert result.bop == 0.0 and result.basis == "none"
 
 
@@ -288,7 +312,9 @@ def test_a_zero_score_still_says_why():
     from datetime import date as _d
     cases = {
         "streaming": credit(budget=159e6, worldwide_gross=8e6, release_kind="limited"),
-        "no budget": credit(worldwide_gross=50e6, release_kind="wide"),
+        "no budget, small gross": credit(worldwide_gross=50e6,
+                                         release_kind="wide"),
+        "no budget": credit(worldwide_gross=8e6),
     }
     for want, c in cases.items():
         cp, result = boxoffice.box_office_cp(c, 1.0)

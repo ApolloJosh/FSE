@@ -34,6 +34,25 @@ def ladder_points(mult: float) -> float:
     return K.BOX_OFFICE_LADDER[-1][1]
 
 
+def gross_only_points(credit: Credit) -> Optional[float]:
+    """Points from absolute gross, for a theatrical film with no budget on file.
+
+    Returns None when the fallback does not apply, which is different from
+    returning 0.0 - a wide release that took $30M scores nothing, but it has
+    been judged; a film with no gross at all has not.
+    """
+    gross = credit.worldwide_gross or 0
+    if gross <= 0:
+        return None
+    # An untyped release needs to have grossed like a wide one to be read as one.
+    if credit.release_kind != "wide" and gross < K.WIDE_RELEASE_GROSS:
+        return None
+    for upper, points in K.GROSS_ONLY_LADDER:
+        if gross < upper:
+            return points * K.GROSS_ONLY_DISCOUNT
+    return K.GROSS_ONLY_LADDER[-1][1] * K.GROSS_ONLY_DISCOUNT
+
+
 def scale_factor(gross: Optional[float]) -> float:
     """Keeps a genuine blockbuster worth more than a lucky micro-budget hit.
 
@@ -89,7 +108,12 @@ def evaluate(credit: Credit) -> BoxOfficeResult:
 
     result = _evaluate_theatrical(credit)
     if result.bop == 0 and not result.verdict:
-        why = "no budget" if multiple(credit) is None else "break-even"
+        if multiple(credit) is not None:
+            why = "break-even"
+        elif gross_only_points(credit) == 0.0:
+            why = "no budget, small gross"
+        else:
+            why = "no budget"
         result = result._replace(verdict=why)
     return result
 
@@ -106,14 +130,21 @@ def _evaluate_theatrical(credit: Credit) -> BoxOfficeResult:
         return BoxOfficeResult(mult, points, scale_factor(credit.worldwide_gross),
                                "theatrical")
 
-    # Fallback 1: a streaming original with published viewership.
+    # Fallback 1: a theatrical release with a gross but no budget on file.
+    # Positive rungs only - see GROSS_ONLY_LADDER.
+    points = gross_only_points(credit)
+    if points is not None:
+        return BoxOfficeResult(None, points, scale_factor(credit.worldwide_gross),
+                               "gross only")
+
+    # Fallback 2: a streaming original with published viewership.
     if credit.streaming_viewers_28d:
         synthetic = credit.streaming_viewers_28d / K.STREAMING_BREAKEVEN_VIEWERS
         synthetic *= K.BREAKEVEN_MULTIPLE     # map "break-even viewers" onto the ladder
         points = ladder_points(synthetic) * K.STREAMING_DISCOUNT
         return BoxOfficeResult(synthetic, points, 1.0, "streaming")
 
-    # Fallback 2: limited release with no reliable budget. Reception carries it.
+    # Fallback 3: limited release with no reliable budget. Reception carries it.
     return BoxOfficeResult(None, 0.0, 1.0, "none")
 
 

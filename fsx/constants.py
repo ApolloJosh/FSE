@@ -96,6 +96,34 @@ BOX_OFFICE_LADDER = [
 # paid like a blockbuster. Below this, box office scores nothing either way.
 MIN_GROSS_FOR_POINTS = 5_000_000
 
+# Two thirds of the films in the corpus have no budget on file, and Wikipedia
+# does not have one either - of 1,467 film articles read, 901 carry a blank
+# budget field. The number mostly does not exist for small, old and foreign
+# films, so waiting for better data is waiting for nothing.
+#
+# What we do have for 668 of them is a gross. A film that took $174M played to
+# somebody, and scoring it zero says it never happened. So an absolute-gross
+# ladder stands in when the multiple cannot be computed - positive rungs only,
+# because calling something a flop requires knowing what it cost.
+GROSS_ONLY_LADDER = [
+    (75_000_000, 0.0),
+    (150_000_000, 360.0),
+    (350_000_000, 810.0),
+    (700_000_000, 1350.0),
+    (float("inf"), 1980.0),
+]
+# The first paying rung is $75M because budget coverage in the corpus rises with
+# gross - 45% below $5M, 86% to $25M, 97% to $75M, 99.7% above $150M. A missing
+# budget is itself evidence of a small film, so a large gross with no budget on
+# file implies a large multiple. Below $75M it implies nothing: the median known
+# budget of a film grossing $75-150M is $40M, which is 2.5x - short of the 3.5x
+# the real ladder starts paying at.
+#
+# The multiple is still unknown, so the verdict is a guess about scale rather
+# than a measurement of return. It pays less than the same rung earned the hard
+# way.
+GROSS_ONLY_DISCOUNT = 0.6
+
 # A film that never had a wide theatrical run was not selling tickets, so its
 # multiple of budget is not a verdict on anything. The Irishman reads as 0.01x.
 # Release type is the signal; the theatrical-to-digital window is the fallback
