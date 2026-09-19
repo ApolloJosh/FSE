@@ -11,6 +11,8 @@ import os
 from datetime import date, datetime
 from pathlib import Path
 
+from typing import Optional
+
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -89,8 +91,13 @@ app.include_router(games_router)
 
 
 # --------------------------------------------------------------------- market
+# FastAPI evaluates a route signature at import time, so `str | None` here is
+# not deferred by `from __future__ import annotations` the way every other
+# annotation in this file is - and on Python 3.9 it raises. Apple ships 3.9 as
+# /usr/bin/python3, so this is the difference between the app starting on a Mac
+# and not. Optional[] costs nothing and works everywhere.
 @app.get("/", response_class=HTMLResponse)
-def market(request: Request, msg: str | None = None, ok: int = 0):
+def market(request: Request, msg: Optional[str] = None, ok: int = 0):
     user = current_user(request)
     prices = db.latest_prices(conn())
     held = {}
@@ -114,7 +121,7 @@ def market(request: Request, msg: str | None = None, ok: int = 0):
 
 
 @app.get("/stock/{slug}", response_class=HTMLResponse)
-def stock(request: Request, slug: str, msg: str | None = None, ok: int = 0):
+def stock(request: Request, slug: str, msg: Optional[str] = None, ok: int = 0):
     user = current_user(request)
     prices = db.latest_prices(conn())
     row = prices.get(slug)
@@ -217,7 +224,7 @@ def slots(request: Request, csrf: str = Form(...)):
 
 # ------------------------------------------------------------------- portfolio
 @app.get("/portfolio", response_class=HTMLResponse)
-def portfolio(request: Request, msg: str | None = None, ok: int = 0):
+def portfolio(request: Request, msg: Optional[str] = None, ok: int = 0):
     user = current_user(request)
     if user is None:
         return RedirectResponse("/signin", status_code=303)

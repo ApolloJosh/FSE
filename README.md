@@ -17,6 +17,9 @@ make setup      # pip install -r requirements.txt
 make dev        # seeds the market if empty, serves on http://localhost:8000
 ```
 
+Python 3.9 or newer — including the 3.9 Apple ships as `/usr/bin/python3`, which
+CI tests on every push alongside 3.12.
+
 Then open http://localhost:8000, click **Sign in**, and choose **Continue as a
 test player**. That is a local account with no OAuth application behind it — it
 starts with CR 500.00 so you can buy something, sell it and watch a leaderboard

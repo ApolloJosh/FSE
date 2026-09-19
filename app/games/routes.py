@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import date
 
+from typing import Optional
+
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
@@ -24,7 +26,7 @@ def _ctx(request: Request):
 
 
 @router.get("/play", response_class=HTMLResponse)
-def hub(request: Request, msg: str | None = None, ok: int = 0):
+def hub(request: Request, msg: Optional[str] = None, ok: int = 0):
     conn, user, snapshot = _ctx(request)
     if user is None:
         return RedirectResponse("/signin", status_code=303)
@@ -51,7 +53,7 @@ def _weekly_date(on: date) -> date:
 
 
 @router.get("/play/{game}", response_class=HTMLResponse)
-def show(request: Request, game: str, msg: str | None = None, ok: int = 0):
+def show(request: Request, game: str, msg: Optional[str] = None, ok: int = 0):
     conn, user, snapshot = _ctx(request)
     if user is None:
         return RedirectResponse("/signin", status_code=303)

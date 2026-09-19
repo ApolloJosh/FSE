@@ -24,11 +24,13 @@ test:
 check: test
 	$(PY) scripts/crawl.py
 
-# Seeding is skipped when the database already has prices, so this is safe to
-# repeat. Sign in at /signin with "Continue as a test player".
+# Seeding exits 0 when the database already has prices, so this is safe to
+# repeat - and a seed that genuinely fails stops here, rather than being
+# swallowed and leaving uvicorn to fail with the same error a screen later.
+# Sign in at /signin with "Continue as a test player".
 dev:
 	@test -f data/people.json || $(PY) -m fsx.cli snapshot
-	@$(PY) -m app.jobs seed || true
+	@$(PY) -m app.jobs seed
 	$(PY) -m uvicorn app.main:app --reload --port 8000
 
 seed:
