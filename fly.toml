@@ -1,3 +1,4 @@
+# Rename this app before deploying: the name must be unique across fly.io.
 app = "film-stock-exchange"
 primary_region = "iad"
 
@@ -8,6 +9,8 @@ primary_region = "iad"
   FSX_DB = "/data/market.db"
   FSX_ENV = "production"
 
+# SQLite lives on the volume, never in the image - otherwise every deploy
+# wipes every portfolio.
 [[mounts]]
   source = "market_data"
   destination = "/data"
@@ -20,10 +23,12 @@ primary_region = "iad"
   min_machines_running = 0
 
 [[http_service.checks]]
-  grace_period = "10s"
+  grace_period = "15s"
   interval = "30s"
+  timeout = "5s"
   method = "GET"
   path = "/healthz"
 
-# fly.io runs the nightly job as a scheduled machine:
-#   fly machine run . --schedule daily --command "python -m app.jobs mark"
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

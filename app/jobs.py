@@ -24,8 +24,15 @@ def main(argv: list[str] | None = None) -> int:
     mark.add_argument("--on", default=None, help="YYYY-MM-DD, for backfills")
     mark.add_argument("--dividends", action="store_true")
 
+    seed = sub.add_parser(
+        "seed", help="fill price history on a fresh database (run once after deploy)")
+    seed.add_argument("--snapshot", default=str(SNAPSHOT))
+    seed.add_argument("--db", default=str(DB_PATH))
+    seed.add_argument("--months", type=int, default=24)
+
     args = parser.parse_args(argv)
-    on = datetime.strptime(args.on, "%Y-%m-%d").date() if args.on else date.today()
+    on = datetime.strptime(getattr(args, "on", None), "%Y-%m-%d").date() \
+        if getattr(args, "on", None) else date.today()
 
     snapshot = Path(args.snapshot)
     if not snapshot.exists():
@@ -35,6 +42,22 @@ def main(argv: list[str] | None = None) -> int:
 
     conn = db.connect(args.db)
     db.migrate(conn)
+
+    if args.command == "seed":
+        # Prices are computed from a date, so a brand new database can be given
+        # a real history immediately instead of waiting months to grow one.
+        if db.latest_date(conn):
+            print("This database already has prices. Nothing to seed.")
+            return 0
+        from datetime import timedelta
+        months = args.months
+        for i in range(months, -1, -1):
+            day = on - timedelta(days=30 * i)
+            count = marking.refresh_prices(conn, snapshot, day)
+            print(f"  {day}  {count} stocks", flush=True)
+        print(f"Seeded {months + 1} months of prices.")
+        return 0
+
     report = marking.run(conn, snapshot, on, with_dividends=args.dividends)
 
     if report.skipped:

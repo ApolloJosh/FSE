@@ -27,11 +27,32 @@ ROOT = Path(__file__).resolve().parents[1]
 SNAPSHOT = Path(os.environ.get("FSX_SNAPSHOT", ROOT / "data" / "people.json"))
 DB_PATH = Path(os.environ.get("FSX_DB", ROOT / "data" / "market.db"))
 
+IS_PRODUCTION = os.environ.get("FSX_ENV") == "production"
+
+
+def _session_secret() -> str:
+    """A signed session cookie is only as good as its key.
+
+    With a known fallback in production, anyone could mint a cookie and sign in
+    as any player - so production refuses to boot without a real one rather
+    than quietly running forgeable.
+    """
+    secret = os.environ.get("SESSION_SECRET", "")
+    if secret:
+        return secret
+    if IS_PRODUCTION:
+        raise RuntimeError(
+            "SESSION_SECRET is not set. Sessions would be forgeable. "
+            "Set it (fly secrets set SESSION_SECRET=$(openssl rand -hex 32)) "
+            "and redeploy.")
+    return "dev-only-not-a-secret"
+
+
 app = FastAPI(title="Film Stock Exchange", docs_url=None, redoc_url=None)
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.environ.get("SESSION_SECRET", "dev-only-not-a-secret"),
-    https_only=os.environ.get("FSX_ENV") == "production",
+    secret_key=_session_secret(),
+    https_only=IS_PRODUCTION,
     same_site="lax",
 )
 
