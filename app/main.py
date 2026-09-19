@@ -119,8 +119,10 @@ def stock(request: Request, slug: str, msg: str | None = None, ok: int = 0):
     prices = db.latest_prices(conn())
     row = prices.get(slug)
     if row is None:
-        return HTMLResponse(views.chrome("Not listed", "<h1>Not listed</h1>"
-                                         "<p>No such stock.</p>", user), status_code=404)
+        body = ('<h1>Not listed</h1><p class="muted">No stock with that name. '
+                '<a href="../">Back to the market</a>.</p>')
+        return HTMLResponse(views.chrome("Not listed — Film Stock Exchange",
+                                         body, user, depth=1), status_code=404)
 
     points = views.points_from(db.price_history(conn(), slug, 400))
     pos = db.position(conn(), user["id"], slug) if user else None
@@ -323,22 +325,43 @@ def boards(request: Request, board: str = "season"):
 # ------------------------------------------------------------------------ auth
 @app.get("/signin", response_class=HTMLResponse)
 def signin(request: Request):
-    if not PROVIDERS:
-        body = ("<h1>Sign-in is not configured</h1><p class='muted'>Set "
-                "GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET or GITHUB_CLIENT_ID / "
-                "GITHUB_CLIENT_SECRET and restart.</p>")
-        return views.chrome("Sign in", body, None)
-
     buttons = "".join(
         f'<a class="btn" href="/auth/{p}">Continue with {p.title()}</a>'
         for p in PROVIDERS)
+    if auth.dev_login_allowed():
+        buttons += ('<a class="btn ghost" href="/auth/dev">'
+                    'Continue as a test player</a>')
+
+    if not buttons:
+        body = ("<h1>Sign-in is not configured</h1><p class='muted'>Set "
+                "GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET or GITHUB_CLIENT_ID / "
+                "GITHUB_CLIENT_SECRET and restart.</p>")
+        return views.chrome("Sign in — Film Stock Exchange", body, None)
+
+    note = ('<p class="muted">The test player is a local account with no OAuth '
+            'app behind it. It is refused when FSX_ENV=production.</p>'
+            if auth.dev_login_allowed() else
+            '<p class="muted">We keep a display name and an avatar. '
+            'Nothing else.</p>')
     body = f"""
 <section class="hero"><h1>Sign in</h1>
 <p class="lede">New players start with CR 50.00. No passwords — we never ask for
 one and never store one.</p></section>
 <div class="signin">{buttons}</div>
-<p class="muted">We keep a display name and an avatar. Nothing else.</p>"""
+{note}"""
     return views.chrome("Sign in — Film Stock Exchange", body, None)
+
+
+@app.get("/auth/dev")
+def dev_signin(request: Request):
+    """Sign in as a local test player. Off in production - see dev_login_allowed."""
+    if not auth.dev_login_allowed():
+        return RedirectResponse("/signin", status_code=303)
+    user = db.upsert_user(conn(), "dev", "local", "Test Player", None,
+                          auth.DEV_STARTING_CREDITS)
+    auth.sign_in(request, user["id"])
+    leaderboards.ensure_season_baseline(conn(), user["id"])
+    return RedirectResponse("/", status_code=303)
 
 
 @app.get("/auth/{provider}")

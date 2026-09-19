@@ -12,8 +12,6 @@ name: Rebuild the market
 on:
   schedule:
     - cron: "17 9 * * *"        # nightly rebuild, offline
-  push:
-    branches: [main, master]
   workflow_dispatch:
     inputs:
       refresh:
@@ -43,9 +41,6 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
-
-      - name: Tests
-        run: python -m pytest tests/ -q
 
       # Permanent by design: a film's scores never change, so a cache hit is
       # always correct and every hit is an API call not spent.

@@ -271,3 +271,44 @@ def test_an_unknown_game_is_not_a_crash(client):
     sign_in(c, conn)
     r = c.get("/play/../../etc/passwd", follow_redirects=False)
     assert r.status_code in (303, 404)
+
+
+# ------------------------------------------------------------------- linkage
+def _broken_links(c):
+    """Follow every href on every reachable page and report the dead ones.
+
+    Relative hrefs are the recurring bug here: the same nav renders at the top
+    level and a directory down, and one that forgets renders /stock/signin.
+    """
+    import re
+    from urllib.parse import urljoin
+
+    seen, queue, bad = set(), ["/"], []
+    while queue:
+        url = queue.pop(0)
+        if url in seen or url.startswith("/signout"):
+            continue
+        seen.add(url)
+        r = c.get(url, follow_redirects=True)
+        url = r.url.path
+        seen.add(url)
+        if r.status_code >= 400:
+            bad.append((url, r.status_code))
+            continue
+        if "html" not in r.headers.get("content-type", ""):
+            continue
+        for href in re.findall(r'href="([^"]*)"', r.text):
+            if href and not href.startswith(("http", "mailto:", "#")):
+                queue.append(urljoin(url, href))
+    return bad
+
+
+def test_no_page_links_to_a_dead_one_signed_out(client):
+    c, _ = client
+    assert _broken_links(c) == []
+
+
+def test_no_page_links_to_a_dead_one_signed_in(client):
+    c, conn = client
+    sign_in(c, conn)
+    assert _broken_links(c) == []

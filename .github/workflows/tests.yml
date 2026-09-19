@@ -1,0 +1,24 @@
+# The test suite on every push and pull request, separate from the nightly
+# rebuild - that one also deploys Pages, so a Pages problem must not read as a
+# failing test suite.
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Tests
+        run: python -m pytest tests/ -q
+      - name: No page links to a dead one
+        run: python scripts/crawl.py

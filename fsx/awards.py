@@ -13,6 +13,10 @@ from . import constants as K
 from .models import Award, Contribution, Person
 
 
+def award_name(key: str) -> str:
+    return K.AWARD_NAMES.get(key, key.replace("_", " ").title())
+
+
 def _first_oscar_win(person: Person) -> Award | None:
     wins = [a for a in person.awards if a.won and a.key in K.OSCAR_KEYS]
     return min(wins, key=lambda a: a.awarded_on) if wins else None
@@ -35,19 +39,22 @@ def award_contributions(person: Person, as_of: date | None = None) -> list[Contr
                 continue
             value = min(float(win_cp), room)
             critics_group_total += value
-            out.append(Contribution("award", f"{award.key} {award.year}", value,
+            out.append(Contribution("award",
+                                    f"{award_name(award.key)} ({award.year})", value,
                                     award.awarded_on, is_award=True))
             continue
 
         if nom_cp:
-            out.append(Contribution("award", f"{award.key} nomination {award.year}",
-                                    float(nom_cp), award.awarded_on, is_award=True))
+            out.append(Contribution(
+                "award", f"{award_name(award.key)} nomination ({award.year})",
+                float(nom_cp), award.awarded_on, is_award=True))
         if award.won:
             value = float(win_cp)
             if first_win is not None and award is first_win:
                 value *= K.FIRST_OSCAR_WIN_MULTIPLIER
-            out.append(Contribution("award", f"{award.key} win {award.year}", value,
-                                    award.awarded_on, is_award=True))
+            out.append(Contribution(
+                "award", f"{award_name(award.key)} win ({award.year})", value,
+                award.awarded_on, is_award=True))
 
     out.extend(snub_contributions(person, as_of))
     return out

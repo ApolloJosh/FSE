@@ -187,6 +187,27 @@ AWARD_TABLE = {
     "spirit_gotham": (60, 130),
     "critics_group": (0, 90),
 }
+# What to call each of those on the "why it moved" panel. The keys are how the
+# data arrives; "oscar_lead nomination 1989" is not a sentence anyone reads.
+AWARD_NAMES = {
+    "oscar_lead": "Oscar, Best Actor/Actress",
+    "oscar_supporting": "Oscar, Supporting",
+    "oscar_directing": "Oscar, Directing",
+    "oscar_picture": "Oscar, Best Picture",
+    "oscar_screenplay": "Oscar, Screenplay",
+    "bafta": "BAFTA",
+    "globe": "Golden Globe",
+    "sag_individual": "SAG Award",
+    "sag_ensemble": "SAG ensemble",
+    "emmy_lead": "Emmy, lead",
+    "emmy_supporting": "Emmy, supporting",
+    "critics_choice": "Critics' Choice",
+    "festival_top": "Festival top prize",
+    "european_film": "European Film Award",
+    "national_major": "National film award",
+    "spirit_gotham": "Spirit / Gotham",
+    "critics_group": "Critics' group award",
+}
 CRITICS_GROUP_CAP = 270
 FIRST_OSCAR_WIN_MULTIPLIER = 1.5
 OSCAR_KEYS = {"oscar_lead", "oscar_supporting", "oscar_directing",
@@ -223,6 +244,11 @@ STARTING_BANKROLL = 50.00
 TRADE_FEE = 0.015
 SETTLEMENT_DAYS = 7
 POSITION_CAP_PCT = 0.05
+# ...but never so hard that the market is unbuyable. At 5% of a CR 50 bankroll
+# the most you could hold in anyone was CR 2.50, which is the price floor - a
+# new player could not buy a single share of a single person. One share of
+# anyone is always allowed; the cap governs how much you pile in after that.
+POSITION_CAP_MIN_SHARES = 1
 FREE_PORTFOLIO_SLOTS = 10
 # (days held before the event, share of the gain realized)
 CONVICTION_LADDER = [

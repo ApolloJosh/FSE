@@ -17,13 +17,32 @@ from fastapi import HTTPException, Request
 
 from . import db
 
-STARTING_CREDITS = db.cents(50.00)
+STARTING_CREDITS = db.cents(float(os.environ.get("FSX_STARTING_CREDITS", "50")))
+# The real bankroll is meant to be slow: CR 50 buys one mid-tier stock, and the
+# daily games pay a few Credits a day. That is the game. It is also useless for
+# testing, where you want to buy an A-lister, sell it and watch a leaderboard
+# move in one sitting - so the local test player gets a float instead.
+DEV_STARTING_CREDITS = db.cents(float(os.environ.get("FSX_DEV_CREDITS", "500")))
 SESSION_USER = "uid"
 CSRF_KEY = "csrf"
 
 oauth = OAuth()
 
 GOOGLE_DISCOVERY = "https://accounts.google.com/.well-known/openid-configuration"
+
+
+def dev_login_allowed() -> bool:
+    """A local account with no OAuth app behind it.
+
+    Testing the game means signing in, and signing in meant registering two
+    OAuth applications and putting their secrets in a file first - so the whole
+    signed-in half of the app was unreachable on a laptop. This opens a door
+    into it that only exists off production: FSX_ENV=production turns it off
+    whatever else is set, so it cannot be left on by accident.
+    """
+    if os.environ.get("FSX_ENV") == "production":
+        return False
+    return os.environ.get("FSX_DEV_LOGIN", "1") != "0"
 
 
 def configure() -> list[str]:

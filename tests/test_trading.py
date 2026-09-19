@@ -130,6 +130,17 @@ def test_one_stock_cannot_take_over_a_portfolio(conn):
         trading.buy(conn, user, "mid", 40, on=TODAY)
 
 
+def test_the_cap_never_blocks_a_first_share(conn):
+    """At 5% of a CR 50 bankroll the most you could hold in anyone was CR 2.50,
+    the price floor - so a new player could not buy one share of one person.
+    The market has to be buyable before it can be concentrated in."""
+    user = db.upsert_user(conn, "github", "new", "New", None, db.cents(50.00))["id"]
+    trading.buy(conn, user, "mid", 1, on=TODAY)      # CR 20 of a CR 50 bankroll
+    assert db.position(conn, user, "mid")["shares"] == 1
+    with pytest.raises(TradeError, match="5%"):
+        trading.buy(conn, user, "mid", 1, on=TODAY)  # but not a second
+
+
 def test_a_position_inside_the_cap_is_allowed(conn):
     user = db.upsert_user(conn, "github", "ok", "OK", None, db.cents(1000.00))["id"]
     trading.buy(conn, user, "mid", 2, on=TODAY)

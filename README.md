@@ -13,20 +13,49 @@ market runs on.
 ## Run it
 
 ```bash
-pip install -r requirements.txt
-python3 -m pytest tests/ -q      # 131 tests
-
-python3 -m fsx.cli snapshot      # fixture careers -> data/people.json, no keys
-python3 -m fsx.cli site          # build the market into site/
-python3 -m http.server -d site 8000
+make setup      # pip install -r requirements.txt
+make dev        # seeds the market if empty, serves on http://localhost:8000
 ```
 
-With API keys in `.env` (copy `.env.example`):
+Then open http://localhost:8000, click **Sign in**, and choose **Continue as a
+test player**. That is a local account with no OAuth application behind it — it
+starts with CR 500.00 so you can buy something, sell it and watch a leaderboard
+move in one sitting, and it refuses to exist when `FSX_ENV=production`.
+
+No API keys are needed to run it. The market is built from the committed
+snapshot in `data/people.json`; keys are only for refreshing that snapshot.
 
 ```bash
-python3 -m fsx.cli backfill roster.txt --max-credits 60   # fetch + snapshot
-python3 -m fsx.cli site                                   # render
+make test       # 245 tests
+make check      # tests, then crawl every page looking for a dead link
+make seed       # rebuild two years of weekly price history from scratch
+make clean      # throw away the local database and start over
 ```
+
+There are two surfaces and it is worth knowing which is which:
+
+| | what it is | how to run it |
+| --- | --- | --- |
+| **The app** | the game — market, trading, portfolios, leaderboards, daily puzzles | `make dev` |
+| **`site/`** | a read-only static export of the market, for GitHub Pages | `make site` |
+
+`site/` has no accounts and no games by design. If you open `site/index.html`
+expecting the game, it will look like half a product, because it is the half
+that can be served from a CDN with no server at all.
+
+### With API keys
+
+Copy `.env.example` to `.env` and fill in what you have:
+
+```bash
+python3 -m fsx.cli backfill roster.txt --max-credits 60   # refetch + snapshot
+python3 -m app.jobs seed --force                          # rebuild prices
+```
+
+`SESSION_SECRET` is required in production and the app refuses to boot without
+it, because a signed session cookie with a known key is a forgeable one. Google
+and GitHub OAuth pairs are optional; the sign-in page offers only the buttons
+that are configured.
 
 ## The site
 
@@ -156,16 +185,9 @@ do not just move the number.
 
 ## Phase 2: the game
 
-```bash
-cp .env.example .env          # add SESSION_SECRET and an OAuth pair
-python3 -m fsx.cli snapshot   # or backfill, for real data
-python3 -m app.jobs mark      # seed prices; run this nightly
-uvicorn app.main:app --reload
-```
-
-Sign-in is Google or GitHub. **No password is ever collected, hashed, reset or
-breached**, because none is ever asked for. Set either OAuth pair, or both; the
-sign-in page offers only the buttons that are configured.
+Sign-in is Google or GitHub, plus the local test player described under
+**Run it**. **No password is ever collected, hashed, reset or breached**,
+because none is ever asked for.
 
 ### Held value, the one idea worth understanding
 
@@ -189,7 +211,7 @@ an Oscar pays well below it.
 ### The rest of the rules
 
 1.5% fee both ways · 7-day settlement after every buy · no single position over
-5% of the portfolio · 10 free slots, then CR 20.00 each, escalating past 25 ·
+5% of the portfolio, except that one share of anyone is always allowed · 10 free slots, then CR 20.00 each, escalating past 25 ·
 quarterly dividends of 0.5% plus 0.25% per full year held, capped at 2%.
 
 ### The nightly job
@@ -215,11 +237,7 @@ image — otherwise every deploy wipes every portfolio. OAuth callback URLs are
 
 ## Phase 3: the daily games
 
-```bash
-uvicorn app.main:app --reload    # then visit /play
-```
-
-Four puzzles a day plus a weekend one, all generated from the same film data
+Sign in, then visit `/play`. Four puzzles a day plus a weekend one, all generated from the same film data
 that prices the market — so playing them teaches you to read it.
 
 | Game | What it asks | Pays |

@@ -29,6 +29,10 @@ def main(argv: list[str] | None = None) -> int:
     seed.add_argument("--snapshot", default=str(SNAPSHOT))
     seed.add_argument("--db", default=str(DB_PATH))
     seed.add_argument("--months", type=int, default=24)
+    seed.add_argument("--every", type=int, default=7,
+                      help="days between seeded price points (default weekly)")
+    seed.add_argument("--force", action="store_true",
+                      help="re-seed a database that already has prices")
 
     args = parser.parse_args(argv)
     on = datetime.strptime(getattr(args, "on", None), "%Y-%m-%d").date() \
@@ -46,16 +50,30 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "seed":
         # Prices are computed from a date, so a brand new database can be given
         # a real history immediately instead of waiting months to grow one.
-        if db.latest_date(conn):
-            print("This database already has prices. Nothing to seed.")
+        if db.latest_date(conn) and not args.force:
+            print("This database already has prices. Nothing to seed. "
+                  "Pass --force to rebuild them (positions are kept).")
             return 0
+        if args.force:
+            # Only the derived market: users, positions and trades survive, so
+            # a stale dev database can be rebuilt without losing a test account.
+            with conn:
+                conn.execute("DELETE FROM prices")
+                conn.execute("DELETE FROM stocks")
+            print("Cleared the old prices.")
         from datetime import timedelta
-        months = args.months
-        for i in range(months, -1, -1):
-            day = on - timedelta(days=30 * i)
+        # Weekly rather than monthly: a chart drawn from 25 points looks like a
+        # staircase, and the 30-day change on the market table was being read
+        # off whichever monthly point happened to be nearest.
+        step = max(1, args.every)
+        points = max(1, (args.months * 30) // step)
+        for i in range(points, -1, -1):
+            day = on - timedelta(days=step * i)
             count = marking.refresh_prices(conn, snapshot, day)
-            print(f"  {day}  {count} stocks", flush=True)
-        print(f"Seeded {months + 1} months of prices.")
+            if i % 10 == 0 or i == 0:
+                print(f"  {day}  {count} stocks", flush=True)
+        print(f"Seeded {points + 1} prices per stock, "
+              f"every {step} days back to {on - timedelta(days=step * points)}.")
         return 0
 
     report = marking.run(conn, snapshot, on, with_dividends=args.dividends)

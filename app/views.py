@@ -41,6 +41,14 @@ APP_STYLE = STYLE + """
 .boards a.on { color: var(--ink); border-bottom-color: var(--ink); }
 .signin { display: flex; gap: 12px; margin: 22px 0; }
 .empty { color: var(--muted); padding: 28px 0; }
+.filter { display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  margin: 0 0 14px; }
+.filter input, .filter select { font: inherit; font-size: .92rem; padding: 7px 10px;
+  border: 1px solid var(--rule); background: var(--surface); color: var(--ink);
+  border-radius: 2px; }
+.filter input { width: 15rem; }
+.filter .count { color: var(--muted); font-size: .88rem; margin-left: auto; }
+tr.hidden { display: none; }
 """
 
 
@@ -89,7 +97,7 @@ def points_from(rows: list[sqlite3.Row]) -> list[Point]:
 
 
 def market_page(rows: list[dict], user: sqlite3.Row | None, note: str = "") -> str:
-    body_rows = "".join(f"""<tr>
+    body_rows = "".join(f"""<tr data-name="{esc(r['name'].lower())}" data-tier="{esc(r['tier'])}">
   <td class="rank">{i}</td>
   <td class="name"><a href="stock/{esc(r['slug'])}">{esc(r['name'])}</a>
       {'<span class="badge">dir</span>' if r['is_director'] else ''}</td>
@@ -100,6 +108,12 @@ def market_page(rows: list[dict], user: sqlite3.Row | None, note: str = "") -> s
   <td class="sparkcell">{r['spark']}</td>
 </tr>""" for i, r in enumerate(rows, 1))
 
+    tiers = []
+    for r in rows:
+        if r["tier"] not in tiers:
+            tiers.append(r["tier"])
+    options = "".join(f'<option value="{esc(t)}">{esc(t)}</option>' for t in tiers)
+
     return chrome("The market — Film Stock Exchange", f"""
 <section class="hero">
   <h1>The market</h1>
@@ -108,19 +122,54 @@ def market_page(rows: list[dict], user: sqlite3.Row | None, note: str = "") -> s
   market notices.</p>
 </section>
 {note}
+<div class="filter">
+  <input id="q" type="search" placeholder="Find a name" autocomplete="off"
+         aria-label="Filter by name">
+  <select id="tier" aria-label="Filter by tier">
+    <option value="">Every tier</option>{options}
+  </select>
+  <span class="count" id="count">{len(rows)} listed</span>
+</div>
 <table class="market">
   <thead><tr><th class="rank">#</th><th>Name</th><th class="num">Price</th>
   <th class="num">30 days</th><th>Tier</th><th class="num">Held</th>
   <th>History</th></tr></thead>
-  <tbody>{body_rows}</tbody>
-</table>""", user)
+  <tbody id="rows">{body_rows}</tbody>
+</table>
+<p class="empty" id="none" hidden>Nobody by that name is listed.</p>
+<script>
+// 247 rows and no way through them is a list, not a market. Filtering client
+// side keeps it instant and keeps the page cacheable.
+(function () {{
+  var q = document.getElementById('q'), tier = document.getElementById('tier');
+  var rows = [].slice.call(document.querySelectorAll('#rows tr'));
+  var count = document.getElementById('count'), none = document.getElementById('none');
+  function apply() {{
+    var needle = q.value.trim().toLowerCase(), want = tier.value, shown = 0;
+    rows.forEach(function (row) {{
+      var name = row.getAttribute('data-name') || '';
+      var ok = (!needle || name.indexOf(needle) > -1)
+            && (!want || row.getAttribute('data-tier') === want);
+      row.classList.toggle('hidden', !ok);
+      if (ok) shown++;
+    }});
+    count.textContent = shown + (shown === 1 ? ' listed' : ' listed');
+    none.hidden = shown > 0;
+  }}
+  q.addEventListener('input', apply);
+  tier.addEventListener('change', apply);
+}})();
+</script>""", user)
 
 
 def trade_panel(slug: str, price: int, user: sqlite3.Row | None,
                 pos: sqlite3.Row | None, csrf: str, settle_days: int | None) -> str:
     if user is None:
+        # Absolute: this panel renders on /stock/<slug>, where a relative
+        # "signin" resolves to /stock/signin. That was the 404 on the one page
+        # a signed-out visitor is most likely to click from.
         return ('<div class="trade"><p class="muted">'
-                '<a href="signin">Sign in</a> to trade. New players start with '
+                '<a href="/signin">Sign in</a> to trade. New players start with '
                 'CR 50.00.</p></div>')
 
     affordable = int(db.credits(user["credits"]) / (db.credits(price) * 1.015)) if price else 0
