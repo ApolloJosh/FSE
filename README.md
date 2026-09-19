@@ -26,7 +26,7 @@ No API keys are needed to run it. The market is built from the committed
 snapshot in `data/people.json`; keys are only for refreshing that snapshot.
 
 ```bash
-make test       # 245 tests
+make test       # 246 tests
 make check      # tests, then crawl every page looking for a dead link
 make seed       # rebuild two years of weekly price history from scratch
 make clean      # throw away the local database and start over

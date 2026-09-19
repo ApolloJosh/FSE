@@ -312,3 +312,23 @@ def test_no_page_links_to_a_dead_one_signed_in(client):
     c, conn = client
     sign_in(c, conn)
     assert _broken_links(c) == []
+
+
+
+def test_an_unfinished_slate_is_not_graded(client):
+    """Submitting three picks was being graded as a wrong answer, which spent
+    the week's puzzle on a form the player had not finished."""
+    c, conn = client
+    sign_in(c, conn)
+    page = c.get("/play/slate")
+    if "Pick" not in page.text:
+        pytest.skip("the fixture corpus cannot build a slate")
+    import re
+    csrf = re.search(r'name="csrf" value="([^"]+)"', page.text).group(1)
+    r = c.post("/play/slate", data={"csrf": csrf, "pick": ["1", "2", "3"]},
+               follow_redirects=False)
+    from urllib.parse import unquote
+    assert r.status_code == 303
+    assert "Pick exactly five" in unquote(r.headers["location"])
+    row = c.get("/play/slate")
+    assert "Earned" not in row.text

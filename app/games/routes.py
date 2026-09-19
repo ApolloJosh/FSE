@@ -136,6 +136,12 @@ async def submit(request: Request, game: str, csrf: str = Form(...),
 
     elif game == WEEKLY:
         picked = [str(v) for v in form.getlist("pick")]
+        if len(set(picked)) != 5:
+            # An unfinished form is not a wrong answer. Grading it spent the
+            # week's puzzle on a submission the player had not made yet.
+            return RedirectResponse(
+                f"/play/{game}?msg=Pick exactly five, then lock it in.&ok=0",
+                status_code=303)
         grade = scoring.grade_slate(puzzle, picked)
 
     state["detail"] = grade.detail
