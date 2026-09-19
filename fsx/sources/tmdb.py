@@ -51,9 +51,15 @@ class TMDB(HTTPSource):
                         f"ext:{person_id}")
         return data.get("imdb_id")
 
+    # A filmography is the one thing here that is never finished. Cached for
+    # good, a stock could never learn that its owner had released something -
+    # which is most of what the game is supposed to price.
+    CREDITS_MAX_AGE_DAYS = 7
+
     def person_credits(self, person_id: int) -> dict[str, Any]:
         return self.get(f"/person/{person_id}/movie_credits",
-                        dict(self.auth), f"credits:{person_id}")
+                        dict(self.auth), f"credits:{person_id}",
+                        max_age_days=self.CREDITS_MAX_AGE_DAYS)
 
     def movie(self, movie_id: int) -> dict[str, Any]:
         return self.get(f"/movie/{movie_id}", dict(self.auth), f"movie:{movie_id}")

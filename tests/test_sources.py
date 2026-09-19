@@ -1,5 +1,7 @@
 """Auth wiring for the data sources. No network: these test credential handling."""
 
+import json
+
 import pytest
 
 from fsx.sources.base import HTTPSource, MissingKey
@@ -59,3 +61,41 @@ def test_the_cache_survives_a_missing_key(tmp_path):
 def test_a_source_reads_its_credential_from_the_environment(monkeypatch):
     monkeypatch.setenv("OMDB_API_KEY", "env-key")
     assert OMDb().api_key == "env-key"
+
+
+# ------------------------------------------------------------------- cache age
+def test_a_stamped_entry_expires(tmp_path):
+    """A film's reviews settle; a filmography does not. Cached for good, a
+    stock could never learn that its owner had released something."""
+    import time
+    from fsx.sources.cache import Cache
+
+    cache = Cache("t", tmp_path)
+    cache.set("credits:1", {"cast": []}, stamp=True)
+    assert cache.get("credits:1", max_age_days=7) == {"cast": []}
+
+    stale = cache._path("credits:1")
+    data = json.loads(stale.read_text())
+    data["_fetched"] = time.time() - 8 * 86400
+    stale.write_text(json.dumps(data))
+    assert cache.get("credits:1", max_age_days=7) is None
+    assert cache.get("credits:1") == {"cast": []}   # still readable, just stale
+
+
+def test_an_unstamped_entry_is_refetched_once_when_an_age_is_wanted(tmp_path):
+    """Entries written before expiry existed have an unknown age, so they must
+    not be trusted as fresh - and must still read as permanent ones."""
+    from fsx.sources.cache import Cache
+
+    cache = Cache("t", tmp_path)
+    cache.set("credits:2", {"cast": ["old"]})
+    assert cache.get("credits:2", max_age_days=7) is None
+    assert cache.get("credits:2") == {"cast": ["old"]}
+
+
+def test_a_permanent_entry_is_untouched(tmp_path):
+    from fsx.sources.cache import Cache
+
+    cache = Cache("t", tmp_path)
+    cache.set("movie:9", {"budget": 1})
+    assert cache.get("movie:9") == {"budget": 1}

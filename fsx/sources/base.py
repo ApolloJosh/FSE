@@ -69,8 +69,11 @@ class HTTPSource:
                 time.sleep(wait)
         self._last_call = time.monotonic()
 
-    def get(self, path: str, params: dict[str, Any], cache_key: str) -> Any:
-        cached = self.cache.get(cache_key)
+    def get(self, path: str, params: dict[str, Any], cache_key: str,
+            max_age_days: float | None = None) -> Any:
+        """`max_age_days` is for the lookups that keep changing - a person's
+        filmography, chiefly. Everything else is cached for good."""
+        cached = self.cache.get(cache_key, max_age_days)
         if cached is not None:
             return cached
 
@@ -84,5 +87,5 @@ class HTTPSource:
         response.raise_for_status()
 
         payload = response.json()
-        self.cache.set(cache_key, payload)
+        self.cache.set(cache_key, payload, stamp=max_age_days is not None)
         return payload

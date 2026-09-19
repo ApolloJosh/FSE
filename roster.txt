@@ -272,3 +272,68 @@ James Gunn*
 Matt Reeves*
 Jon M. Chu*
 Baz Luhrmann*
+
+# --- Added after the first play-test -----------------------------------------
+# Josh asked for Tom Holland and Chase Infiniti, and going looking turned up a
+# lot of company. PRUNE THIS LIST before running the backfill - every name is a
+# few minutes of fetching, and a roster is a curatorial decision, not a census.
+# Comment out with a #; delete freely.
+Tom Holland
+Chase Infiniti
+
+Sydney Sweeney
+Glen Powell
+Pedro Pascal
+Miles Teller
+Nicholas Hoult
+Ariana Grande
+Cynthia Erivo
+Keke Palmer
+Simu Liu
+Michael B. Jordan
+Daniel Craig
+Hugh Jackman
+Dwayne Johnson
+Chris Pine
+Adam Sandler
+Will Smith
+Keanu Reeves
+Bradley Cooper
+Jake Gyllenhaal
+Andrew Scott
+Paul Dano
+Mia Goth
+Thomasin McKenzie
+Rachel Zegler
+Jonathan Bailey
+Josh Hartnett
+Lily-Rose Depp
+Sophie Thatcher
+Isabela Merced
+Maya Hawke
+Kathryn Newton
+Angela Bassett
+Regina Hall
+Danielle Brooks
+Da'Vine Joy Randolph
+John Magaro
+Andre Holland
+Trevante Rhodes
+Karla Sofia Gascon
+Fernanda Torres
+Rosamund Pike
+Elizabeth Debicki
+Vanessa Kirby
+Jack Lowden
+
+# directors
+Alex Garland*
+Edward Berger*
+Michael Mann*
+Ridley Scott*
+James Cameron*
+Steven Soderbergh*
+David Fincher*
+Kathryn Bigelow*
+Sean Durkin*
+Brady Corbet*
