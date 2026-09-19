@@ -24,11 +24,16 @@ fly volumes create market_data --size 1 --region iad
 
 # 3. Secrets. These never enter the repo or this chat.
 fly secrets set SESSION_SECRET=$(openssl rand -hex 32)
+fly secrets set FSX_ENV=production
 fly secrets set TMDB_READ_ACCESS_TOKEN=... OMDB_API_KEY=...
 
 # 4. Ship it.
 fly deploy
 ```
+
+`FSX_ENV=production` does two things that matter: the app refuses to boot
+without a real `SESSION_SECRET`, rather than running with forgeable cookies,
+and the local test player is turned off so nobody can sign in as one.
 
 ## Seed the market, once
 
