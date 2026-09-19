@@ -1,11 +1,25 @@
 name: Rebuild the market
 
+# Prices move every night WITHOUT refetching anything: decay is driven by the
+# date, so yesterday's snapshot produces today's prices. Refetching is only
+# needed when someone has NEW credits or awards, which is a weekly concern at
+# most - so the nightly build is free and offline, and the refresh is separate.
+#
+# The first version of this file refetched the whole roster every night: two
+# hours, ~15,000 OMDb calls, and because .cache/ is gitignored it re-fetched
+# from cold every single time.
+
 on:
   schedule:
-    - cron: "17 9 * * *"     # 09:17 UTC daily, off the hour to be polite
-  workflow_dispatch:
+    - cron: "17 9 * * *"        # nightly rebuild, offline
   push:
     branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      refresh:
+        description: "Refetch the roster from TMDB/OMDb before building"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -19,25 +33,33 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      TMDB_READ_ACCESS_TOKEN: ${{ secrets.TMDB_READ_ACCESS_TOKEN }}
+      OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
       - run: pip install -r requirements.txt
 
       - name: Tests
         run: python -m pytest tests/ -q
 
-      # Refetch only when the keys are set. Without them the build still runs,
-      # from the snapshot already committed - a data outage never takes the
-      # site down, it just serves yesterday's prices.
-      - name: Refresh data
-        if: ${{ secrets.TMDB_READ_ACCESS_TOKEN != '' }}
-        env:
-          TMDB_READ_ACCESS_TOKEN: ${{ secrets.TMDB_READ_ACCESS_TOKEN }}
-          OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
-        run: python -m fsx.cli backfill roster.txt --max-credits 60 || true
+      # Permanent by design: a film's scores never change, so a cache hit is
+      # always correct and every hit is an API call not spent.
+      - name: Restore the fetch cache
+        if: inputs.refresh
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: fsx-fetch-${{ github.run_id }}
+          restore-keys: fsx-fetch-
+
+      - name: Refresh the roster
+        if: inputs.refresh && env.TMDB_READ_ACCESS_TOKEN != ''
+        run: python -m fsx.cli backfill roster.txt --max-credits 60
 
       - name: Build the site
         run: python -m fsx.cli site
