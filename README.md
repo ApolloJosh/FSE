@@ -286,3 +286,31 @@ films are not trying to make money, and the engine now knows the difference.
 
 The modifier ramps rather than steps, so nothing hinges on a film scoring 39
 instead of 41, and a film with no reviews on file is judged neither way.
+
+
+## Streaming and limited releases
+
+TMDB's `/movie/{id}/release_dates` tags every release by type — premiere,
+limited theatrical, theatrical, digital, physical, TV. A film that never had a
+**wide** run was not selling tickets, so its multiple of budget is not a
+verdict on anything:
+
+```
+The Irishman         limited 2019-11-01  digital 2019-11-27   26d  -> streaming
+The Two Popes        limited 2019-11-27  digital 2019-12-20   23d  -> streaming
+Killers of the Moon  wide    2023-10-20  digital 2023-12-05   46d  -> judged
+Crime 101            wide    2026-02-13  digital 2026-04-01   47d  -> judged
+Oppenheimer          wide    2023-07-21  digital 2023-11-21  123d  -> judged
+```
+
+Release type is the signal. The theatrical-to-digital window is the fallback
+where TMDB has no typed release: under 21 days and the theatrical run was not
+the point. A typed **wide** release beats a short window, because a studio
+dumping a film early is a flop, not a streaming title.
+
+Films released March 2020 – December 2021 are exempt. Judging that cohort on
+box office says more about the pandemic than about anyone's career.
+
+Both cases score zero rather than a penalty, and carry the verdict `streaming`
+or `pandemic` so the why-it-moved panel can say so. Reception and awards carry
+those credits, which is what was always meant to happen.

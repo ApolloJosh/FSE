@@ -229,3 +229,54 @@ def test_the_modifier_ramps_rather_than_steps():
     a, _ = boxoffice.reception_modifier(-100, 39.0)
     b, _ = boxoffice.reception_modifier(-100, 41.0)
     assert abs(a - b) < 0.12
+
+
+# ----------------------------------------------- how a film actually released
+def test_a_limited_only_release_is_not_scored_on_its_multiple():
+    """The Irishman had a 26-day limited run and reads as 0.01x of budget.
+    That is not a verdict on anything."""
+    c = credit(budget=159e6, worldwide_gross=8e6, release_kind="limited",
+               digital_window_days=26)
+    result = boxoffice.evaluate(c)
+    assert result.bop == 0.0 and result.verdict == "streaming"
+
+
+def test_a_wide_release_that_flopped_is_still_scored():
+    """Killers of the Flower Moon had a real theatrical run and a 46-day
+    window. It underperformed, and that counts."""
+    c = credit(budget=200e6, worldwide_gross=158e6, release_kind="wide",
+               digital_window_days=46)
+    assert boxoffice.evaluate(c).bop < 0
+
+
+def test_a_short_window_stands_in_when_the_type_is_missing():
+    assert boxoffice.is_streaming_release(credit(digital_window_days=14))
+    assert not boxoffice.is_streaming_release(credit(digital_window_days=60))
+    assert not boxoffice.is_streaming_release(credit())     # nothing known
+
+
+def test_a_typed_wide_release_beats_a_short_window():
+    """A studio dumping a wide release early is a flop, not a streaming title."""
+    c = credit(release_kind="wide", digital_window_days=20)
+    assert not boxoffice.is_streaming_release(c)
+
+
+def test_the_pandemic_cohort_is_not_judged_on_box_office():
+    from datetime import date as _d
+    c = Credit(title="t", release_date=_d(2020, 7, 1), budget=100e6,
+               worldwide_gross=20e6, release_kind="wide")
+    assert boxoffice.evaluate(c).verdict == "pandemic"
+    assert boxoffice.evaluate(c).bop == 0.0
+
+
+def test_films_either_side_of_the_pandemic_are_judged_normally():
+    from datetime import date as _d
+    for when in (_d(2019, 7, 1), _d(2022, 7, 1)):
+        c = Credit(title="t", release_date=when, budget=100e6,
+                   worldwide_gross=20e6, release_kind="wide")
+        assert boxoffice.evaluate(c).bop < 0
+
+
+def test_an_explicit_override_beats_every_inference():
+    c = credit(release_kind="limited", bop_override=500.0, scale_override=1.0)
+    assert boxoffice.evaluate(c).bop == 500.0

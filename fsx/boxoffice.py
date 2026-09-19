@@ -53,12 +53,43 @@ def is_wide_release(credit: Credit) -> bool:
             or (credit.worldwide_gross or 0) >= K.WIDE_RELEASE_GROSS)
 
 
+def is_streaming_release(credit: Credit) -> bool:
+    """Did this film ever really play in cinemas?
+
+    A limited-only or digital-only release was never selling tickets, so its
+    multiple of budget is not a verdict on anything - The Irishman had a
+    26-day limited run and reads as 0.01x. Where TMDB has no typed release,
+    a theatrical-to-digital window under three weeks says the same thing.
+    """
+    if credit.release_kind in ("limited", "digital"):
+        return True
+    if credit.release_kind == "wide":
+        return False
+    window = credit.digital_window_days
+    return window is not None and window < K.STREAMING_WINDOW_DAYS
+
+
+def in_pandemic_window(credit: Credit) -> bool:
+    ym = (credit.release_date.year, credit.release_date.month)
+    return K.PANDEMIC_FROM <= ym <= K.PANDEMIC_TO
+
+
 def evaluate(credit: Credit) -> BoxOfficeResult:
+    # An explicit override beats every inference below it.
     if credit.bop_override is not None:
         return BoxOfficeResult(None, credit.bop_override,
                                credit.scale_override if credit.scale_override
                                is not None else 1.0, "override")
 
+    # Neither of these is a box office result, so neither is scored as one.
+    if is_streaming_release(credit):
+        return BoxOfficeResult(multiple(credit), 0.0, 1.0, "none", "streaming")
+    if in_pandemic_window(credit):
+        return BoxOfficeResult(multiple(credit), 0.0, 1.0, "none", "pandemic")
+    return _evaluate_theatrical(credit)
+
+
+def _evaluate_theatrical(credit: Credit) -> BoxOfficeResult:
     mult = multiple(credit)
     if mult is not None:
         points = ladder_points(mult)

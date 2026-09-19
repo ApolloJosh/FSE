@@ -58,6 +58,40 @@ class TMDB(HTTPSource):
     def movie(self, movie_id: int) -> dict[str, Any]:
         return self.get(f"/movie/{movie_id}", dict(self.auth), f"movie:{movie_id}")
 
+    # TMDB release types: 1 premiere, 2 limited theatrical, 3 theatrical,
+    # 4 digital, 5 physical, 6 TV.
+    def release_shape(self, movie_id: int, country: str = "US"
+                      ) -> tuple[Optional[str], Optional[int]]:
+        """Return (release_kind, theatrical-to-digital window in days)."""
+        data = self.get(f"/movie/{movie_id}/release_dates", dict(self.auth),
+                        f"releases:{movie_id}")
+        block = next((r for r in data.get("results", [])
+                      if r.get("iso_3166_1") == country), None)
+        if block is None:
+            return None, None
+
+        first: dict[int, str] = {}
+        for entry in block.get("release_dates", []):
+            kind, when = entry.get("type"), (entry.get("release_date") or "")[:10]
+            if kind and when and when < first.get(kind, "9999"):
+                first[kind] = when
+
+        wide, limited, digital = first.get(3), first.get(2), first.get(4)
+        theatrical = wide or limited
+        window = None
+        if theatrical and digital:
+            window = (_parse_date(digital) - _parse_date(theatrical)).days
+
+        if wide:
+            release_kind = "wide"
+        elif limited:
+            release_kind = "limited"
+        elif digital:
+            release_kind = "digital"
+        else:
+            release_kind = None
+        return release_kind, window
+
     def movie_cast_size(self, movie_id: int) -> int:
         data = self.get(f"/movie/{movie_id}/credits", dict(self.auth),
                         f"cast:{movie_id}")
@@ -99,6 +133,8 @@ class TMDB(HTTPSource):
                 budget=detail.get("budget") or None,
                 worldwide_gross=detail.get("revenue") or None,
             )
+            credit.release_kind, credit.digital_window_days = \
+                self.release_shape(entry["id"])
             credit.tmdb_id = entry["id"]                      # type: ignore[attr-defined]
             credit.imdb_id = detail.get("imdb_id")            # type: ignore[attr-defined]
             credit.runtime_minutes = runtime                  # type: ignore[attr-defined]

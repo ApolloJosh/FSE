@@ -95,6 +95,16 @@ BOX_OFFICE_LADDER = [
 # Sean Baker's debut cost $3,000 and took $69,816 - a 23x "phenomenon" that
 # paid like a blockbuster. Below this, box office scores nothing either way.
 MIN_GROSS_FOR_POINTS = 5_000_000
+
+# A film that never had a wide theatrical run was not selling tickets, so its
+# multiple of budget is not a verdict on anything. The Irishman reads as 0.01x.
+# Release type is the signal; the theatrical-to-digital window is the fallback
+# when TMDB has no typed release.
+STREAMING_WINDOW_DAYS = 21
+# Cinemas were shut or half-empty. Judging this cohort on box office says more
+# about the pandemic than about anyone's career.
+PANDEMIC_FROM = (2020, 3)
+PANDEMIC_TO = (2021, 12)
 # S ramps from $1M (0.0) to $1B (1.0) instead of starting at a 0.5 floor, so a
 # film that grossed $70k no longer earns three quarters of a billion-dollar
 # opening's credit.

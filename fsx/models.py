@@ -27,6 +27,11 @@ class Credit:
     # scores like a credit but is not a real film, so the puzzle games must
     # never show it to a player. Always False on data from a real backfill.
     placeholder: bool = False
+    # How the film actually reached people. "wide" and "limited" come from
+    # TMDB's release_dates types; a film that never had a wide run was not
+    # trying to sell tickets, so its box office multiple means nothing.
+    release_kind: Optional[str] = None      # wide | limited | digital
+    digital_window_days: Optional[int] = None
     role_weight_override: Optional[float] = None
     ensemble_weight_sum: Optional[float] = None  # all scored RW in this film
 
