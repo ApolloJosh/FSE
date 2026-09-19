@@ -144,3 +144,90 @@ def test_billing_handles_a_missing_field():
 
 def test_piped_wikilinks_resolve_to_the_display_name():
     assert parse_billing("* [[Robert Downey Jr.|Downey]]") == ["Downey"]
+
+
+# ------------------------------------------------- OMDb, against a real payload
+# Captured live from OMDb for tt3896198 (Guardians of the Galaxy Vol. 2).
+OMDB_PAYLOAD = {
+    "Title": "Guardians of the Galaxy: Vol. 2", "Year": "2017",
+    "Ratings": [
+        {"Source": "Internet Movie Database", "Value": "7.6/10"},
+        {"Source": "Rotten Tomatoes", "Value": "85%"},
+        {"Source": "Metacritic", "Value": "67/100"},
+    ],
+    "Metascore": "67", "imdbRating": "7.6", "imdbVotes": "828,114",
+    "imdbID": "tt3896198", "BoxOffice": "$389,813,101", "Response": "True",
+}
+
+
+def _enriched(payload):
+    from datetime import date as _d
+    from fsx.models import Credit
+    from fsx.sources.omdb import OMDb
+
+    source = OMDb(api_key="k")
+    source.by_imdb_id = lambda _id: payload            # no network
+    credit = Credit(title="t", release_date=_d(2017, 5, 5))
+    credit.imdb_id = "tt3896198"
+    return source.enrich(credit)
+
+
+def test_omdb_fills_the_three_launch_sources():
+    credit = _enriched(OMDB_PAYLOAD)
+    assert credit.imdb == pytest.approx(7.6)
+    assert credit.metascore == pytest.approx(67)
+    assert credit.rt_critics == pytest.approx(85)
+
+
+def test_vote_counts_survive_their_commas():
+    """The vote count drives the confidence factor, so a bad parse quietly
+    halves every score on the film."""
+    assert _enriched(OMDB_PAYLOAD).imdb_votes == 828_114
+
+
+def test_the_payload_clears_the_three_source_minimum():
+    from fsx.reception import reception_score
+    result = reception_score(_enriched(OMDB_PAYLOAD))
+    assert result is not None and result.sources_used == 3
+    assert result.confidence == pytest.approx(1.0)
+
+
+def test_omdb_box_office_is_never_used():
+    """OMDb reports DOMESTIC gross - $389.8M on a film that took ~$863M
+    worldwide. Scoring that against budget would call most hits flops."""
+    credit = _enriched(OMDB_PAYLOAD)
+    assert credit.worldwide_gross is None
+
+
+def test_a_missing_film_is_left_untouched():
+    credit = _enriched({"Response": "False", "Error": "Incorrect IMDb ID."})
+    assert credit.imdb is None and credit.rt_critics is None
+
+
+def test_na_values_do_not_become_zero():
+    payload = dict(OMDB_PAYLOAD, imdbVotes="N/A", imdbRating="N/A")
+    credit = _enriched(payload)
+    assert credit.imdb_votes is None
+    assert credit.imdb is None
+
+
+def test_metacritic_falls_back_to_the_ratings_array():
+    """OMDb reports Metacritic twice - a top-level Metascore and an entry in
+    Ratings. When the first is N/A the second still carries the number."""
+    credit = _enriched(dict(OMDB_PAYLOAD, Metascore="N/A"))
+    assert credit.metascore == pytest.approx(67)
+
+
+def test_metascore_is_none_when_neither_place_has_it():
+    payload = dict(OMDB_PAYLOAD, Metascore="N/A",
+                   Ratings=[{"Source": "Rotten Tomatoes", "Value": "85%"}])
+    assert _enriched(payload).metascore is None
+
+
+def test_a_film_with_only_rt_falls_below_the_source_minimum():
+    """Two sources is not enough, so the credit stays provisional rather than
+    scoring off a single critic measure."""
+    from fsx.reception import reception_score
+    payload = dict(OMDB_PAYLOAD, Metascore="N/A",
+                   Ratings=[{"Source": "Rotten Tomatoes", "Value": "85%"}])
+    assert reception_score(_enriched(payload)) is None

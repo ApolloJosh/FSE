@@ -51,6 +51,10 @@ class OMDb(HTTPSource):
         credit.imdb_votes = int(_num(data.get("imdbVotes")) or 0) or None
         credit.metascore = _num(data.get("Metascore"))
 
+        # NOTE: the BoxOffice field is DOMESTIC gross only - Guardians of the
+        # Galaxy Vol. 2 reports $389.8M against a ~$863M worldwide take. Wiring
+        # it into the multiple-of-budget ladder would score most hits as flops.
+        # Worldwide gross comes from TMDB, with Wikipedia as the fallback.
         for rating in data.get("Ratings") or []:
             if rating.get("Source") == "Rotten Tomatoes":
                 credit.rt_critics = _num(rating.get("Value"))
