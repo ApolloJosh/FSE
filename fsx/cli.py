@@ -157,6 +157,20 @@ def cmd_backfill(args) -> int:
 
     names = [n.strip() for n in Path(args.roster).read_text().splitlines()
              if n.strip() and not n.startswith("#")]
+    if args.skip:
+        names = names[args.skip:]
+    if args.limit:
+        names = names[:args.limit]
+
+    if args.dry_run:
+        calls = len(names) * args.max_credits
+        print(f"{len(names)} people x up to {args.max_credits} credits")
+        print(f"  ~{len(names) * 3 + calls:,} TMDB calls (cached forever after the first run)")
+        print(f"  ~{calls:,} OMDb calls -> {max(1, -(-calls // 1000))} days on the free "
+              f"tier, or one sitting on the $1 tier")
+        print(f"  ~{len(names) * 2:,} Wikidata queries, ~{calls // 4:,} Wikipedia pages")
+        print(f"  rough wall time: {(len(names) * args.max_credits * 0.45) / 60:.0f} minutes")
+        return 0
     people: list[Person] = []
     stats = {"omdb": 0, "wikidata_scores": 0, "wikipedia_money": 0, "awards": 0}
 
@@ -176,10 +190,18 @@ def cmd_backfill(args) -> int:
 
     failures: list[str] = []
 
+    import time
+    started = time.monotonic()
+
     for i, raw in enumerate(names, 1):
         as_director = raw.endswith("*")
         name = raw.rstrip("*").strip()
-        print(f"[{i}/{len(names)}] {name}", file=sys.stderr)
+        elapsed = time.monotonic() - started
+        eta = ""
+        if i > 1:
+            remaining = (elapsed / (i - 1)) * (len(names) - i + 1)
+            eta = f"  eta {remaining / 60:.0f}m"
+        print(f"[{i}/{len(names)}] {name}{eta}", file=sys.stderr)
 
         person = attempt("tmdb.build_person", tmdb.build_person, name,
                          as_director=as_director, max_credits=args.max_credits)
@@ -209,8 +231,12 @@ def cmd_backfill(args) -> int:
         for credit in person.credits:
             imdb_id = getattr(credit, "imdb_id", None)
 
-            if omdb.available and not args.no_omdb:
+            if omdb.available and not args.no_omdb and not omdb.exhausted:
                 attempt(f"omdb:{credit.title}", omdb.enrich, credit)
+                if omdb.exhausted:
+                    print("    OMDb daily limit reached - continuing on Wikidata "
+                          "scores. Rerun tomorrow to fill the gaps; everything "
+                          "already fetched is cached.", file=sys.stderr)
                 if credit.imdb is not None:
                     stats["omdb"] += 1
 
@@ -283,6 +309,12 @@ def main(argv: list[str] | None = None) -> int:
                           help="skip OMDb; use Wikidata for review scores instead")
     backfill.add_argument("--no-wiki", action="store_true",
                           help="skip Wikipedia and Wikidata entirely")
+    backfill.add_argument("--limit", dest="limit", type=int, default=0,
+                          help="only the first N names, for chunking a big roster")
+    backfill.add_argument("--skip", type=int, default=0,
+                          help="skip the first N names, to resume a chunked run")
+    backfill.add_argument("--dry-run", action="store_true",
+                          help="estimate the call budget and stop")
 
     args = parser.parse_args(argv)
     return {"fixtures": cmd_fixtures, "reference": cmd_reference,

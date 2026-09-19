@@ -27,15 +27,34 @@ def _num(value: Optional[str]) -> Optional[float]:
         return None
 
 
+class QuotaReached(RuntimeError):
+    """OMDb's daily cap. Free tier is 1,000 calls; a $1/month key lifts it."""
+
+
 class OMDb(HTTPSource):
     name = "omdb"
     env_var = "OMDB_API_KEY"
     base_url = "http://www.omdbapi.com/"
     min_interval = 0.1
+    exhausted = False
 
     def by_imdb_id(self, imdb_id: str) -> dict:
-        return self.get("", {"apikey": self.api_key, "i": imdb_id},
-                        f"imdb:{imdb_id}")
+        if self.exhausted:
+            raise QuotaReached("OMDb daily limit already reached this run.")
+        try:
+            data = self.get("", {"apikey": self.api_key, "i": imdb_id},
+                            f"imdb:{imdb_id}")
+        except Exception as exc:                      # noqa: BLE001
+            # A 401 here is the daily cap, not a bad key - the key already
+            # worked. Either way there is no point making 15,000 more calls.
+            if "401" in str(exc):
+                self.exhausted = True
+                raise QuotaReached("OMDb returned 401 - daily limit reached.") from exc
+            raise
+        if isinstance(data, dict) and "limit reached" in str(data.get("Error", "")).lower():
+            self.exhausted = True
+            raise QuotaReached("OMDb says the daily limit is reached.")
+        return data
 
     def enrich(self, credit: Credit) -> Credit:
         """Layer review scores onto a credit TMDB already built."""
