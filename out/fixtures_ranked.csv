@@ -1,0 +1,26 @@
+person,price,cp,tier,credits,working_cp,reception_cp,box_office_cp,award_cp,idle_years,idle_factor
+Meryl Streep,124.93,7096.7,A-List,48,2290.6,163.8,476.0,4166.3,1.48,0.878
+Steven Spielberg,106.23,5878.5,Established,32,1685.5,595.2,659.3,2938.5,2.48,0.789
+Cate Blanchett,98.31,5370.8,Established,52,2520.5,710.2,91.4,2048.8,1.48,0.863
+Denzel Washington,92.49,5001.5,Established,42,2399.7,548.7,-52.3,2105.3,1.48,0.858
+Leonardo DiCaprio,87.1,4662.4,Established,30,1725.5,750.0,328.6,1858.4,1.48,0.854
+Tom Cruise,79.01,4159.4,Established,40,2279.3,457.8,689.1,733.1,1.48,0.849
+Michelle Yeoh,71.79,3716.1,Established,44,1939.8,158.6,311.6,1306.2,1.48,0.843
+Christopher Nolan,66.55,3398.8,Established,12,604.4,310.4,550.5,1933.5,2.48,0.746
+Paul Giamatti,43.91,2070.5,Recognized,66,1211.5,219.1,93.6,546.3,1.48,0.817
+Mikey Madison,39.61,1827.8,Recognized,3,116.6,72.6,271.0,1367.6,1.48,0.809
+Margot Robbie,38.68,1776.0,Recognized,24,1050.2,124.7,234.4,366.7,1.48,0.808
+Timothee Chalamet,33.95,1514.6,Recognized,18,880.3,301.5,114.9,217.9,1.48,0.799
+Florence Pugh,24.5,1008.8,Recognized,16,693.1,148.8,26.0,140.9,1.48,0.783
+Greta Gerwig,21.21,839.2,Recognized,3,140.0,66.8,219.3,413.1,2.48,0.655
+Barry Keoghan,21.05,831.5,Recognized,20,375.8,86.1,28.1,341.6,1.48,0.777
+Ke Huy Quan,18.48,701.7,Recognized,3,42.8,18.2,46.9,593.8,3.48,0.545
+Stephen Root,17.57,656.4,Working,75,582.8,59.9,13.7,0.0,1.48,0.769
+John Carroll Lynch,15.52,556.1,Working,63,494.0,36.6,25.5,0.0,1.48,0.76
+Brian Tyree Henry,14.8,520.9,Working,21,331.5,44.4,23.9,121.1,1.48,0.756
+Jordan Peele,13.52,459.9,Working,3,97.7,39.5,163.9,158.8,3.48,0.509
+Margaret Qualley,12.78,425.2,Working,16,316.1,62.6,46.4,0.0,1.48,0.748
+Ana de Armas,11.82,380.4,Working,25,451.9,-151.7,-122.3,202.4,1.48,0.743
+Stephanie Hsu,9.05,254.6,Working,8,93.6,30.5,22.6,108.0,1.48,0.732
+Sophie Wilde,8.64,236.5,Working,1,43.8,22.2,170.5,0.0,2.48,0.59
+Dominic Sessa,4.24,56.4,Debut,1,33.1,23.3,0.0,0.0,2.48,0.575

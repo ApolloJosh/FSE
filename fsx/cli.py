@@ -1,0 +1,294 @@
+"""Phase 0 backfill: run a roster through the engine and print a ranked list.
+
+    python -m fsx.cli fixtures              # the hand-entered careers
+    python -m fsx.cli backfill roster.txt   # real data, needs TMDB + OMDb keys
+    python -m fsx.cli reference             # the six design-doc careers
+
+The question Phase 0 answers is whether a film-literate person reads the ranked
+list and finds it defensible. Everything here exists to produce that list.
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import sys
+from datetime import date
+from pathlib import Path
+
+from . import constants as K
+from .engine import value_person
+from .models import Person, Valuation
+
+OUT_DIR = Path(__file__).resolve().parents[1] / "out"
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+
+
+def _load_env() -> None:
+    env = Path(__file__).resolve().parents[1] / ".env"
+    if not env.exists():
+        return
+    import os
+    for line in env.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip())
+
+
+def rank(people: list[Person], as_of: date | None = None) -> list[Valuation]:
+    values = [value_person(p, as_of) for p in people]
+    return sorted(values, key=lambda v: v.price, reverse=True)
+
+
+def write_csv(values: list[Valuation], path: Path) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rows = [v.as_row() for v in values]
+    with path.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        for i, row in enumerate(rows, 1):
+            writer.writerow({**row, "person": row["person"]})
+    return path
+
+
+def print_table(values: list[Valuation], limit: int = 100) -> None:
+    print(f"\n{'#':>3}  {'Person':<32} {'Price':>9}  {'Tier':<12} "
+          f"{'CP':>9}  {'cred':>4}  {'work':>7} {'recep':>8} {'box':>8} {'award':>9}  idle")
+    print("-" * 122)
+    for i, v in enumerate(values[:limit], 1):
+        print(f"{i:>3}  {v.person:<32} {v.price:>9,.2f}  {v.tier:<12} "
+              f"{v.cp:>9,.0f}  {v.credits_scored:>4}  "
+              f"{v.working_cp:>7,.0f} {v.reception_cp:>8,.0f} "
+              f"{v.box_office_cp:>8,.0f} {v.award_cp:>9,.0f}  {v.idle_years:>4.1f}y")
+
+
+def print_distribution(values: list[Valuation]) -> None:
+    counts: dict[str, int] = {}
+    for v in values:
+        counts[v.tier] = counts.get(v.tier, 0) + 1
+    total = len(values) or 1
+    print(f"\nTier distribution ({total} listed)")
+    print("-" * 46)
+    for _, name, _, _ in K.DECAY_TIERS:
+        n = counts.get(name, 0)
+        bar = "#" * round(40 * n / total)
+        print(f"  {name:<12} {n:>4}  {100 * n / total:>5.1f}%  {bar}")
+
+
+# ------------------------------------------------------------------ commands
+def cmd_fixtures(args) -> int:
+    from .fixtures.careers import roster
+    values = rank(roster())
+    print_table(values, args.limit)
+    print_distribution(values)
+    out = write_csv(values, OUT_DIR / "fixtures_ranked.csv")
+    print(f"\nWrote {out}")
+    print("\nThese figures come from hand-entered approximations, not live data.")
+    print("They test whether the engine orders people sensibly, nothing more.")
+    return 0
+
+
+def cmd_snapshot(args) -> int:
+    """Write the hand-entered fixtures out as a snapshot, so the site can be
+    built and looked at before a real backfill exists."""
+    from .fixtures.careers import roster
+    from .store import save
+    path = save(roster(), DATA_DIR / "people.json")
+    print(f"Wrote {path} from the fixture careers.")
+    print("These are hand-entered approximations - fine for seeing the site, "
+          "not for publishing a price.")
+    return 0
+
+
+def cmd_site(args) -> int:
+    """Render the read-only market from a snapshot. No network, no keys."""
+    from .site import build
+    snapshot = Path(args.snapshot)
+    if not snapshot.exists():
+        print(f"No snapshot at {snapshot}.", file=sys.stderr)
+        print("Run 'fsx snapshot' for the fixtures, or 'fsx backfill' for real "
+              "data, then try again.", file=sys.stderr)
+        return 1
+
+    result = build(snapshot, Path(args.out), years=args.years)
+    print(f"Built {result['people']} stock pages into {result['out']}")
+    print(f"Data snapshot fetched {result['fetched'] or 'unknown'}")
+    print(f"\nOpen it:  python3 -m http.server -d {args.out} 8000")
+    return 0
+
+
+def cmd_reference(args) -> int:
+    from .reference import AS_OF, EXPECTED_PRICES, reference_careers
+    values = rank(reference_careers(), as_of=AS_OF)
+    print_table(values, args.limit)
+    print("\n  Against the design doc:")
+    for v in values:
+        want = EXPECTED_PRICES.get(v.person)
+        if want:
+            drift = 100 * (v.price / want - 1)
+            print(f"    {v.person:<20} {v.price:>8,.2f}  doc {want:>8,.2f}  {drift:+6.2f}%")
+    return 0
+
+
+def cmd_backfill(args) -> int:
+    _load_env()
+    from .sources.omdb import OMDb
+    from .sources.tmdb import TMDB
+    from .sources.wikidata import Wikidata
+    from .sources.wikipedia import Wikipedia
+
+    tmdb = TMDB()
+    if not tmdb.available:
+        print("TMDB needs TMDB_READ_ACCESS_TOKEN or TMDB_API_KEY.", file=sys.stderr)
+        print("Copy .env.example to .env and fill one in, then rerun.", file=sys.stderr)
+        return 1
+
+    omdb = OMDb()
+    if not omdb.available and not args.no_omdb:
+        print("No OMDB_API_KEY: falling back to Wikidata for review scores.",
+              file=sys.stderr)
+        print("That loses the IMDb rating and its vote count, so every credit "
+              "scores at reduced confidence.", file=sys.stderr)
+
+    wikipedia = None if args.no_wiki else Wikipedia()
+    wikidata = None if args.no_wiki else Wikidata()
+
+    names = [n.strip() for n in Path(args.roster).read_text().splitlines()
+             if n.strip() and not n.startswith("#")]
+    people: list[Person] = []
+    stats = {"omdb": 0, "wikidata_scores": 0, "wikipedia_money": 0, "awards": 0}
+
+    def attempt(label: str, fn, *a, **kw):
+        """Every external call is individually survivable.
+
+        The first run lost all three people because one bad Wikipedia lookup
+        raised inside the credit loop and aborted the whole person - awards
+        never ran, nothing was ranked, no CSV was written. A person missing one
+        film's box office is worth far more than no person at all.
+        """
+        try:
+            return fn(*a, **kw)
+        except Exception as exc:                      # noqa: BLE001
+            failures.append(f"{label}: {type(exc).__name__}")
+            return None
+
+    failures: list[str] = []
+
+    for i, raw in enumerate(names, 1):
+        as_director = raw.endswith("*")
+        name = raw.rstrip("*").strip()
+        print(f"[{i}/{len(names)}] {name}", file=sys.stderr)
+
+        person = attempt("tmdb.build_person", tmdb.build_person, name,
+                         as_director=as_director, max_credits=args.max_credits)
+        if person is None:
+            print("    no TMDB record, skipped", file=sys.stderr)
+            continue
+
+        # Awards first: they are the single most valuable input, and they used
+        # to sit after the credit loop where a credit failure starved them.
+        if wikidata and person.tmdb_id:
+            person_imdb = attempt("tmdb.person_imdb_id", tmdb.person_imdb_id,
+                                  person.tmdb_id)
+            qid = attempt("wikidata.qid", wikidata.qid_for_imdb,
+                          person_imdb) if person_imdb else None
+            if qid:
+                awards = attempt("wikidata.awards", wikidata.awards, qid) or []
+                person.awards = awards
+                stats["awards"] += len(awards)
+
+        # One batched Wikidata call per person resolves review scores and the
+        # exact Wikipedia article for every credit at once.
+        info = {}
+        if wikidata:
+            ids = [getattr(c, "imdb_id", None) for c in person.credits]
+            info = attempt("wikidata.films_info", wikidata.films_info, ids) or {}
+
+        for credit in person.credits:
+            imdb_id = getattr(credit, "imdb_id", None)
+
+            if omdb.available and not args.no_omdb:
+                attempt(f"omdb:{credit.title}", omdb.enrich, credit)
+                if credit.imdb is not None:
+                    stats["omdb"] += 1
+
+            entry = info.get(imdb_id or "", {})
+            for field, value in (entry.get("scores") or {}).items():
+                if getattr(credit, field, None) is None:
+                    setattr(credit, field, value)
+                    stats["wikidata_scores"] += 1
+
+            # TMDB's money thins out badly below ~$10M; Wikipedia's infobox
+            # carried a budget for 87% of a sample and a gross for 93%.
+            article = entry.get("article")
+            if wikipedia and article and (credit.budget is None
+                                          or credit.worldwide_gross is None):
+                money = attempt(f"wikipedia:{article}",
+                                wikipedia.film_money, article) or {}
+                for field, value in money.items():
+                    if getattr(credit, field, None) is None:
+                        setattr(credit, field, value)
+                        stats["wikipedia_money"] += 1
+
+        people.append(person)
+
+    if not people:
+        print("Nothing to rank.", file=sys.stderr)
+        return 1
+
+    from .store import save
+    snapshot = save(people, DATA_DIR / "people.json")
+
+    values = rank(people)
+    print_table(values, args.limit)
+    print_distribution(values)
+    out = write_csv(values, OUT_DIR / "backfill_ranked.csv")
+    print(f"\nWrote {out}")
+    print(f"Wrote {snapshot} - the site builds from this, offline.")
+    print(f"\nFilled: {stats['omdb']} credits from OMDb, "
+          f"{stats['wikidata_scores']} scores from Wikidata, "
+          f"{stats['wikipedia_money']} money fields from Wikipedia, "
+          f"{stats['awards']} awards from Wikidata.")
+
+    if failures:
+        from collections import Counter
+        tally = Counter(f.split(":")[0] for f in failures)
+        print(f"\n{len(failures)} calls failed and were skipped: "
+              + ", ".join(f"{k} x{v}" for k, v in tally.most_common()))
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="fsx", description=__doc__)
+    parser.add_argument("--limit", type=int, default=100,
+                        help="rows to print (default 100)")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    sub.add_parser("fixtures", help="rank the hand-entered careers")
+    sub.add_parser("reference", help="rank the six design-doc reference careers")
+    sub.add_parser("snapshot", help="write the fixture careers to data/people.json")
+
+    site = sub.add_parser("site", help="build the read-only market site")
+    site.add_argument("--snapshot", default="data/people.json")
+    site.add_argument("--out", default="site")
+    site.add_argument("--years", type=int, default=5,
+                      help="years of price history to chart (default 5)")
+
+    backfill = sub.add_parser("backfill", help="rank real people from TMDB + OMDb")
+    backfill.add_argument("roster", help="text file, one name per line, * for directors")
+    backfill.add_argument("--max-credits", type=int, default=60)
+    backfill.add_argument("--no-omdb", action="store_true",
+                          help="skip OMDb; use Wikidata for review scores instead")
+    backfill.add_argument("--no-wiki", action="store_true",
+                          help="skip Wikipedia and Wikidata entirely")
+
+    args = parser.parse_args(argv)
+    return {"fixtures": cmd_fixtures, "reference": cmd_reference,
+            "snapshot": cmd_snapshot, "site": cmd_site,
+            "backfill": cmd_backfill}[args.command](args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

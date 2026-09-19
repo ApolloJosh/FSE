@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How prices work — Film Stock Exchange</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site">
+  <a class="wordmark" href="index.html">Film Stock Exchange</a>
+  <nav><a href="about.html">How prices work</a></nav>
+</header>
+<main>
+<article class="prose">
+<h1>How prices work</h1>
+<p class="lede">Every price comes from one number, Career Points, run through
+one curve. Nothing here is a guess, and nothing moves on rumour.</p>
+
+<pre class="formula">price = 2.5 + 0.05 × CP<sup>0.88</sup></pre>
+
+<h2>What earns Career Points</h2>
+<table class="parts">
+<thead><tr><th>Component</th><th class="num">At a leading role</th></tr></thead>
+<tbody>
+<tr><td>Simply working — one released credit</td><td class="num">+160</td></tr>
+<tr><td>Critical reception, best to worst</td>
+    <td class="num">−250 to +250</td></tr>
+<tr><td>Box office, as a multiple of budget</td><td class="num">−360 to +660</td></tr>
+<tr><td>An Academy Award nomination</td><td class="num">+400</td></tr>
+<tr><td>Winning it</td><td class="num">+900</td></tr>
+</tbody></table>
+<p>A supporting part earns a fraction of a film's result; a cameo earns very
+little. Awards are the exception — they are given to the person, so they pay in
+full.</p>
+
+<h2>Why prices fall</h2>
+<p>Two forces. Every past result slowly loses weight with age, floored so that
+an old Academy Award never becomes worthless. And a career with nothing coming
+out decays faster the smaller it is — a newcomer who disappears for three years
+loses around a third of their value, while a legend loses about an eighth.</p>
+
+<h2>What deliberately does not count</h2>
+<p>Personal conduct, scandals, arrests, feuds, casting rumours and follower
+counts move nothing. Prices respond to released work and juried awards only.</p>
+
+<h2>Where the numbers come from</h2>
+<p>Credits and billing order from TMDB. Review scores from OMDb and Wikidata,
+blended across Rotten Tomatoes, Metacritic and IMDb after each is normalised
+against its own distribution — a 60 on Rotten Tomatoes is mediocre where a 60
+Metascore is good, and averaging them raw would be wrong. Awards from Wikidata.
+Budgets and grosses from Wikipedia.</p>
+<p class="muted">Built 2026-09-19.</p>
+</article></main>
+<footer>
+  <p>Prices are fictional and move only on released work and juried awards.
+     No real money, no trading. Built 2026-09-19.</p>
+  <p class="muted">Film and credit data from TMDB. Review scores from OMDb and
+     Wikidata. Awards from Wikidata. Budgets and grosses from Wikipedia.</p>
+</footer>
+<script src="chart.js" defer></script>
+</body>
+</html>

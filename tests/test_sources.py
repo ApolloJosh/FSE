@@ -1,0 +1,61 @@
+"""Auth wiring for the data sources. No network: these test credential handling."""
+
+import pytest
+
+from fsx.sources.base import HTTPSource, MissingKey
+from fsx.sources.omdb import OMDb
+from fsx.sources.tmdb import TMDB
+
+
+def test_tmdb_prefers_the_bearer_token():
+    source = TMDB(api_key="v3key", token="v4token")
+    assert source.headers == {"Authorization": "Bearer v4token"}
+    assert source.auth == {}          # the key is left out entirely
+
+
+def test_tmdb_falls_back_to_the_v3_key():
+    source = TMDB(api_key="v3key", token="")
+    assert source.headers == {}
+    assert source.auth == {"api_key": "v3key"}
+
+
+def test_either_credential_counts_as_available():
+    assert TMDB(api_key="", token="v4token").available
+    assert TMDB(api_key="v3key", token="").available
+    assert not TMDB(api_key="", token="").available
+
+
+def test_an_explicit_empty_credential_is_not_the_environment(monkeypatch):
+    monkeypatch.setenv("TMDB_READ_ACCESS_TOKEN", "from-env")
+    assert TMDB(api_key="", token="").token == ""
+    assert TMDB(api_key="").token == "from-env"
+
+
+def test_a_missing_key_names_both_credentials():
+    with pytest.raises(MissingKey, match="TMDB_READ_ACCESS_TOKEN"):
+        TMDB(api_key="", token="").require_key()
+
+
+def test_omdb_has_no_bearer_option():
+    source = OMDb(api_key="k")
+    assert source.headers == {}
+    assert source.available
+
+
+def test_omdb_reports_its_own_env_var():
+    with pytest.raises(MissingKey, match="OMDB_API_KEY"):
+        OMDb(api_key="").require_key()
+
+
+def test_the_cache_survives_a_missing_key(tmp_path):
+    """Scores are cached permanently so an outage degrades new films only."""
+    from fsx.sources.cache import Cache
+    cache = Cache("test", directory=tmp_path)
+    cache.set("imdb:tt0111161", {"imdbRating": "9.3"})
+    assert cache.get("imdb:tt0111161") == {"imdbRating": "9.3"}
+    assert cache.get("imdb:nothing") is None
+
+
+def test_a_source_reads_its_credential_from_the_environment(monkeypatch):
+    monkeypatch.setenv("OMDB_API_KEY", "env-key")
+    assert OMDb().api_key == "env-key"

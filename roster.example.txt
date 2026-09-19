@@ -1,0 +1,18 @@
+# One name per line. Append * to score someone as a director.
+# Comments and blank lines are ignored.
+Meryl Streep
+Tom Cruise
+Denzel Washington
+Cate Blanchett
+Michelle Yeoh
+Margot Robbie
+Timothee Chalamet
+Florence Pugh
+Paul Giamatti
+Stephen Root
+Barry Keoghan
+Mikey Madison
+Christopher Nolan*
+Steven Spielberg*
+Greta Gerwig*
+Jordan Peele*

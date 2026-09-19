@@ -1,0 +1,4 @@
+person,price,cp,tier,credits,working_cp,reception_cp,box_office_cp,award_cp,idle_years,idle_factor
+Christopher Nolan,114.5,6413.3,A-List,19,1382.1,496.0,812.1,3723.1,0.0,1.0
+Michelle Yeoh,63.84,3236.0,Established,18,1402.0,-87.4,100.7,1820.8,0.0,1.0
+Barry Keoghan,29.92,1295.9,Recognized,15,840.4,123.1,-128.8,461.2,0.0,1.0
