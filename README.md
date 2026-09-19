@@ -13,9 +13,12 @@ market runs on.
 ## Run it
 
 ```bash
-make setup      # pip install -r requirements.txt
-make dev        # seeds the market if empty, serves on http://localhost:8000
+make setup
+make dev
 ```
+
+`make setup` installs the dependencies; `make dev` seeds the market if it is
+empty and serves on http://localhost:8000.
 
 Python 3.9 or newer — including the 3.9 Apple ships as `/usr/bin/python3`, which
 CI tests on every push alongside 3.12.
@@ -29,11 +32,18 @@ No API keys are needed to run it. The market is built from the committed
 snapshot in `data/people.json`; keys are only for refreshing that snapshot.
 
 ```bash
-make test       # 246 tests
-make check      # tests, then crawl every page looking for a dead link
-make seed       # rebuild two years of weekly price history from scratch
-make clean      # throw away the local database and start over
+make test
+make check
+make seed
+make clean
 ```
+
+| | |
+| --- | --- |
+| `make test` | the suite — 255 tests |
+| `make check` | the tests, then a crawl of every page looking for a dead link |
+| `make seed` | rebuild five years of fortnightly price history from scratch |
+| `make clean` | throw away the local database and start over |
 
 There are two surfaces and it is worth knowing which is which:
 
@@ -51,9 +61,11 @@ that can be served from a CDN with no server at all.
 Copy `.env.example` to `.env` and fill in what you have:
 
 ```bash
-make refresh          # refetch the roster from TMDB/OMDb, then rebuild prices
-make refresh CREDITS=60   # ...shallower and faster
+make refresh
 ```
+
+`make refresh` refetches the roster from TMDB and OMDb, then rebuilds prices.
+`make refresh CREDITS=60` does the same thing shallower and faster.
 
 `CREDITS` counts **work** per person, not lines on a filmography. 100 reaches
 the 90th percentile of real filmographies; 60 truncates about 90 people. Every
@@ -182,9 +194,11 @@ Run `--no-omdb` to try it; keep OMDb if you want the split the design assumes.
 `fsx/constants.py` holds every number. Change one, then:
 
 ```bash
-python3 -m pytest tests/ -q          # what did it cost?
-python3 scripts/doc_figures.py       # reconcile the design doc
+python3 -m pytest tests/ -q
+python3 scripts/doc_figures.py
 ```
+
+The first says what the change cost; the second reconciles the design doc.
 
 The tests pin six reference careers and four worked examples to the design doc.
 If one fails, decide whether the change was wrong or the doc needs updating —
