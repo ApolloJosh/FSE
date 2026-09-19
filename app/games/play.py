@@ -102,3 +102,13 @@ def solve_rate(conn: sqlite3.Connection, game: str, on: date) -> float | None:
     if not row or not row["attempts"]:
         return None
     return row["solves"] / row["attempts"]
+
+
+def clear_day(conn, user_id: int, on: date) -> int:
+    """Forget a day's plays, so they can be played again. Dev only - see the
+    reset route. The Credits already paid are left in the ledger on purpose:
+    a reset should not also be a refund."""
+    with conn:
+        cur = conn.execute("DELETE FROM plays WHERE user_id = ? AND on_date = ?",
+                           (user_id, on.isoformat()))
+    return cur.rowcount

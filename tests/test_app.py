@@ -163,14 +163,14 @@ def test_signing_out_clears_the_session(client):
     assert c.get("/portfolio", follow_redirects=False).status_code == 303
 
 
-def test_the_position_cap_is_enforced_through_the_route(client):
-    """2 shares at CR 20 is 8% of a CR 500 portfolio, over the 5% cap."""
+def test_a_player_can_put_everything_into_one_stock(client):
+    """The cap is off: 24 shares at CR 20 is the whole CR 500 bankroll."""
     c, conn = client
     user_id = sign_in(c, conn, credits=db.cents(500.00))
-    r = c.post("/stock/trade", data={"slug": "mid", "side": "buy", "shares": "2",
+    r = c.post("/stock/trade", data={"slug": "mid", "side": "buy", "shares": "24",
                                      "csrf": _csrf(c)}, follow_redirects=False)
-    assert "ok=0" in r.headers["location"]
-    assert db.position(conn, user_id, "mid") is None
+    assert "ok=1" in r.headers["location"]
+    assert db.position(conn, user_id, "mid")["shares"] == 24
 
 
 def test_a_player_name_is_escaped_on_the_leaderboard(client):
@@ -332,3 +332,32 @@ def test_an_unfinished_slate_is_not_graded(client):
     assert "Pick exactly five" in unquote(r.headers["location"])
     row = c.get("/play/slate")
     assert "Earned" not in row.text
+
+
+def test_a_tester_can_replay_the_day(client):
+    """Playing a game locks it, which is right for a player and useless for
+    whoever is checking the generators."""
+    c, conn = client
+    user_id = sign_in(c, conn)
+    from app.games import play
+    from datetime import date as _date
+    play.start(conn, user_id, "ladder", _date.today())
+    assert play.get(conn, user_id, "ladder", _date.today()) is not None
+    r = c.post("/play/reset", data={"csrf": _csrf(c, "/play")},
+               follow_redirects=False)
+    assert r.status_code == 303
+    assert play.get(conn, user_id, "ladder", _date.today()) is None
+
+
+def test_the_replay_button_is_refused_in_production(client, monkeypatch):
+    """On a real host a replay button is a Credits printer."""
+    from app import auth
+    c, conn = client
+    user_id = sign_in(c, conn)
+    from app.games import play
+    from datetime import date as _date
+    play.start(conn, user_id, "ladder", _date.today())
+    token = _csrf(c, "/play")       # while the button is still rendered
+    monkeypatch.setattr(auth, "dev_login_allowed", lambda: False)
+    c.post("/play/reset", data={"csrf": token}, follow_redirects=False)
+    assert play.get(conn, user_id, "ladder", _date.today()) is not None

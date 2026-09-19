@@ -15,7 +15,8 @@ from .scoring import DAILY_GAMES, PAYOUTS
 
 
 def hub(summary: dict, unavailable: dict[str, str], user, on: date,
-        streak: int, weekly_done: bool, msg: str = "", ok: bool = False) -> str:
+        streak: int, weekly_done: bool, msg: str = "", ok: bool = False,
+        csrf: str = "", can_reset: bool = False) -> str:
     cards = ""
     for game in GAMES:
         title, blurb = TITLES[game]
@@ -35,6 +36,14 @@ def hub(summary: dict, unavailable: dict[str, str], user, on: date,
         cards += f"""<tr>
   <td><strong>{esc(title)}</strong><br><span class="muted">{esc(blurb)}</span></td>
   <td>{state}</td><td class="num">{action}</td></tr>"""
+
+    reset = ""
+    if can_reset:
+        reset = f"""<form method="post" action="play/reset" class="reset">
+  <input type="hidden" name="csrf" value="{esc(csrf)}">
+  <button class="btn ghost">Play today's games again</button>
+  <span class="muted">Local only. Credits already earned are kept.</span>
+</form>"""
 
     wt, wb = TITLES[WEEKLY]
     weekly_state = ('<span class="up">Done</span>' if weekly_done
@@ -63,7 +72,8 @@ it.</p></section>
   <td><strong>{esc(wt)}</strong><br><span class="muted">{esc(wb)}</span></td>
   <td>{weekly_state}</td></tr></tbody></table>
 <p class="muted">A fifth daily game, Critics vs Crowd, is on hold until an
-audience score is licensable.</p>""", user)
+audience score is licensable.</p>
+{reset}""", user)
 
 
 def _shell(title: str, inner: str, user, msg: str, ok: bool) -> str:

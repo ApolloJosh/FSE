@@ -242,13 +242,16 @@ MIN_IMDB_VOTES_TO_LIST = 1000
 # ------------------------------------------------------------ player economy
 STARTING_BANKROLL = 50.00
 TRADE_FEE = 0.015
-SETTLEMENT_DAYS = 7
-POSITION_CAP_PCT = 0.05
-# ...but never so hard that the market is unbuyable. At 5% of a CR 50 bankroll
-# the most you could hold in anyone was CR 2.50, which is the price floor - a
-# new player could not buy a single share of a single person. One share of
-# anyone is always allowed; the cap governs how much you pile in after that.
-POSITION_CAP_MIN_SHARES = 1
+# Long enough that a buy is a decision rather than a reflex, short enough that
+# a session can include a sell. Seven days meant you could not test your own
+# trade in the same sitting, which is also how a new player experiences it.
+SETTLEMENT_DAYS = 1
+# Off. A cap forces diversification, which protects a player from a bad call -
+# but going all in on someone nobody else has spotted is the fantasy the whole
+# game is built on, and a rule that forbids it is a rule against the point.
+# The mechanism stays here: set this above 0 to turn it back on, and the trade
+# path will enforce it again.
+POSITION_CAP_PCT = 0.0
 FREE_PORTFOLIO_SLOTS = 10
 # (days held before the event, share of the gain realized)
 CONVICTION_LADDER = [

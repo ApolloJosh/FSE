@@ -100,11 +100,9 @@ def buy(conn: sqlite3.Connection, user_id: int, slug: str, shares: int,
 
     existing = db.position(conn, user_id, slug)
 
-    # The 5% cap forces diversification: one lucky pick must not decide a season.
-    # It does not apply to a first share, or the market would be unbuyable -
-    # see POSITION_CAP_MIN_SHARES.
-    shares_after = shares + (existing["shares"] if existing else 0)
-    if POSITION_CAP and shares_after > K.POSITION_CAP_MIN_SHARES:
+    # Off by default - see POSITION_CAP_PCT. Kept wired so it can come back
+    # without rebuilding the trade path.
+    if POSITION_CAP:
         held_after = q.gross + (existing["shares"] * existing["held_value"]
                                 if existing else 0)
         portfolio_after = db.portfolio_value(conn, user_id) - q.fee
@@ -112,8 +110,7 @@ def buy(conn: sqlite3.Connection, user_id: int, slug: str, shares: int,
             cap = db.credits(int(portfolio_after * POSITION_CAP))
             raise TradeError(
                 f"That would put more than {POSITION_CAP:.0%} of your portfolio in "
-                f"one stock. The most you can hold here right now is CR {cap:,.2f}, "
-                f"beyond the one share everyone is allowed.")
+                f"one stock. The most you can hold here right now is CR {cap:,.2f}.")
 
     if existing is None:
         open_positions = conn.execute(

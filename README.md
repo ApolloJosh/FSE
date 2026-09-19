@@ -226,8 +226,9 @@ an Oscar pays well below it.
 
 ### The rest of the rules
 
-1.5% fee both ways · 7-day settlement after every buy · no single position over
-5% of the portfolio, except that one share of anyone is always allowed · 10 free slots, then CR 20.00 each, escalating past 25 ·
+1.5% fee both ways · 1-day settlement after every buy · no position cap, so
+you can put everything into one name · 10 free slots, then CR 20.00 each,
+escalating past 25 ·
 quarterly dividends of 0.5% plus 0.25% per full year held, capped at 2%.
 
 ### The nightly job

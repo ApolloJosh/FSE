@@ -93,7 +93,7 @@ def test_zero_and_negative_orders_are_refused(conn, player):
 def test_you_cannot_sell_inside_the_settlement_window(conn, player):
     trading.buy(conn, player, "mid", 10, on=TODAY)
     with pytest.raises(TradeError, match="Settlement"):
-        trading.sell(conn, player, "mid", 5, on=TODAY + timedelta(days=6))
+        trading.sell(conn, player, "mid", 5, on=TODAY)
 
 
 def test_you_can_sell_the_day_settlement_ends(conn, player):
@@ -108,7 +108,7 @@ def test_buying_more_restarts_the_settlement_clock(conn, player):
     trading.buy(conn, player, "mid", 5, on=TODAY)
     trading.buy(conn, player, "mid", 5, on=TODAY + timedelta(days=5))
     with pytest.raises(TradeError, match="Settlement"):
-        trading.sell(conn, player, "mid", 5, on=TODAY + timedelta(days=8))
+        trading.sell(conn, player, "mid", 5, on=TODAY + timedelta(days=5))
 
 
 def test_you_cannot_sell_more_than_you_hold(conn, player):
@@ -123,28 +123,23 @@ def test_you_cannot_sell_what_you_never_bought(conn, player):
 
 
 # ------------------------------------------------------------------- the caps
-def test_one_stock_cannot_take_over_a_portfolio(conn):
+def test_a_player_can_go_all_in(conn):
+    """The cap is off by choice. Backing one person with everything you have is
+    the fantasy the game is built on; a rule against it is a rule against the
+    point."""
+    user = db.upsert_user(conn, "github", "allin", "All In", None,
+                          db.cents(1000.00))["id"]
+    trading.buy(conn, user, "mid", 49, on=TODAY)      # CR 980 of a CR 1,000 roll
+    assert db.position(conn, user, "mid")["shares"] == 49
+
+
+def test_the_cap_still_works_when_switched_back_on(conn, monkeypatch):
+    """Off is a setting, not a deletion - the trade path must still enforce it."""
+    monkeypatch.setattr(trading, "POSITION_CAP", 0.05)
     user = db.upsert_user(conn, "github", "whale", "Whale", None,
                           db.cents(1000.00))["id"]
     with pytest.raises(TradeError, match="5%"):
         trading.buy(conn, user, "mid", 40, on=TODAY)
-
-
-def test_the_cap_never_blocks_a_first_share(conn):
-    """At 5% of a CR 50 bankroll the most you could hold in anyone was CR 2.50,
-    the price floor - so a new player could not buy one share of one person.
-    The market has to be buyable before it can be concentrated in."""
-    user = db.upsert_user(conn, "github", "new", "New", None, db.cents(50.00))["id"]
-    trading.buy(conn, user, "mid", 1, on=TODAY)      # CR 20 of a CR 50 bankroll
-    assert db.position(conn, user, "mid")["shares"] == 1
-    with pytest.raises(TradeError, match="5%"):
-        trading.buy(conn, user, "mid", 1, on=TODAY)  # but not a second
-
-
-def test_a_position_inside_the_cap_is_allowed(conn):
-    user = db.upsert_user(conn, "github", "ok", "OK", None, db.cents(1000.00))["id"]
-    trading.buy(conn, user, "mid", 2, on=TODAY)
-    assert db.position(conn, user, "mid")["shares"] == 2
 
 
 def test_slots_run_out(conn):

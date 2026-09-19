@@ -41,9 +41,33 @@ def hub(request: Request, msg: Optional[str] = None, ok: int = 0):
 
     summary = play.today_summary(conn, user["id"], on)
     weekly_row = play.get(conn, user["id"], WEEKLY, _weekly_date(on))
+    from app import auth as app_auth
     return views.hub(summary, unavailable, user, on,
                      scoring.streak_length(conn, user["id"], on),
-                     bool(weekly_row and weekly_row["done"]), msg or "", bool(ok))
+                     bool(weekly_row and weekly_row["done"]), msg or "", bool(ok),
+                     csrf=app_auth.csrf_token(request),
+                     can_reset=app_auth.dev_login_allowed())
+
+
+@router.post("/play/reset")
+def reset_today(request: Request, csrf: str = Form(...)):
+    """Wipe today's plays so the games can be played again.
+
+    Testing the puzzles means playing them, and playing one locks it for the
+    day - which is right for a player and useless for whoever is checking the
+    generators. Local only, on the same switch as the test player: on a real
+    host a replay button is a Credits printer.
+    """
+    from app import auth as app_auth
+    conn, user, _ = _ctx(request)
+    app_auth.check_csrf(request, csrf)
+    user_id = app_auth.require_user_id(request)
+    if not app_auth.dev_login_allowed():
+        return RedirectResponse("/play", status_code=303)
+    play.clear_day(conn, user_id, date.today())
+    play.clear_day(conn, user_id, _weekly_date(date.today()))
+    return RedirectResponse("/play?msg=Today's games are open again.&ok=1",
+                            status_code=303)
 
 
 def _weekly_date(on: date) -> date:

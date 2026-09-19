@@ -49,21 +49,28 @@ APP_STYLE = STYLE + """
 .filter input { width: 15rem; }
 .filter .count { color: var(--muted); font-size: .88rem; margin-left: auto; }
 tr.hidden { display: none; }
+.reset { display: flex; gap: 12px; align-items: center; margin: 26px 0 0;
+  padding-top: 18px; border-top: 1px dashed var(--rule); }
 """
 
 
 def chrome(title: str, body: str, user: sqlite3.Row | None, depth: int = 0) -> str:
     """The shell, with an auth bar the static Phase 1 pages do not have."""
     up = "../" * depth
+    # "Market" is spelled out even though the wordmark goes to the same place.
+    # Nobody reads a wordmark as a way back.
+    market = f'<a href="{up or "/"}">Market</a>'
     if user:
         right = (f'<span class="balance">CR {money(db.credits(user["credits"]))}</span>'
+                 f'{market}'
                  f'<a href="{up}play">Play</a>'
                  f'<a href="{up}portfolio">Portfolio</a>'
                  f'<a href="{up}leaderboards">Leaderboards</a>'
                  f'<a href="{up}about">How prices work</a>'
                  f'<a href="{up}signout">Sign out</a>')
     else:
-        right = (f'<a href="{up}leaderboards">Leaderboards</a>'
+        right = (f'{market}'
+                 f'<a href="{up}leaderboards">Leaderboards</a>'
                  f'<a href="{up}about">How prices work</a>'
                  f'<a href="{up}signin">Sign in</a>')
 
