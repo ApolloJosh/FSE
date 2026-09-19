@@ -49,6 +49,19 @@ APP_STYLE = STYLE + """
 .filter input { width: 15rem; }
 .filter .count { color: var(--muted); font-size: .88rem; margin-left: auto; }
 tr.hidden { display: none; }
+.boards-grid { display: grid; gap: 22px; margin: 26px 0 34px;
+  grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); }
+.board { border: 1px solid var(--rule); padding: 16px 18px; background: var(--raised); }
+.board h3 { margin: 0 0 2px; font-size: 1rem; }
+.board p { margin: 0 0 10px; font-size: .8rem; }
+.board ol { margin: 0; padding: 0; list-style: none; counter-reset: rank; }
+.board li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px;
+  align-items: baseline; padding: 5px 0; border-top: 1px solid var(--rule);
+  font-size: .92rem; }
+.board li:first-child { border-top: 0; }
+.board li a { color: var(--ink); text-decoration: none; }
+.board li a:hover { text-decoration: underline; }
+.board .mono { font-family: var(--mono); color: var(--muted); font-size: .86rem; }
 .reset { display: flex; gap: 12px; align-items: center; margin: 26px 0 0;
   padding-top: 18px; border-top: 1px dashed var(--rule); }
 """
@@ -103,7 +116,26 @@ def points_from(rows: list[sqlite3.Row]) -> list[Point]:
                   db.credits(r["price"])) for r in rows]
 
 
-def market_page(rows: list[dict], user: sqlite3.Row | None, note: str = "") -> str:
+def movers_panel(boards: list[tuple[str, str, list[dict]]]) -> str:
+    """Three short lists above the table. 247 rows sorted by price answers
+    "who is expensive", which is the least interesting question the data can
+    answer."""
+    cards = ""
+    for title, blurb, entries in boards:
+        if not entries:
+            continue
+        items = "".join(f"""<li>
+  <a href="stock/{esc(e['slug'])}">{esc(e['name'])}</a>
+  <span class="mono">{money(e['price'])}</span>
+  <span class="{trend_class(e['change'])}">{pct(e['change'])}</span>
+</li>""" for e in entries)
+        cards += (f'<section class="board"><h3>{esc(title)}</h3>'
+                  f'<p class="muted">{esc(blurb)}</p><ol>{items}</ol></section>')
+    return f'<div class="boards-grid">{cards}</div>' if cards else ""
+
+
+def market_page(rows: list[dict], user: sqlite3.Row | None, note: str = "",
+                movers: str = "") -> str:
     body_rows = "".join(f"""<tr data-name="{esc(r['name'].lower())}" data-tier="{esc(r['tier'])}">
   <td class="rank">{i}</td>
   <td class="name"><a href="stock/{esc(r['slug'])}">{esc(r['name'])}</a>
@@ -129,6 +161,8 @@ def market_page(rows: list[dict], user: sqlite3.Row | None, note: str = "") -> s
   market notices.</p>
 </section>
 {note}
+{movers}
+<h2>Every listing</h2>
 <div class="filter">
   <input id="q" type="search" placeholder="Find a name" autocomplete="off"
          aria-label="Filter by name">

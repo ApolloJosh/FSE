@@ -97,6 +97,12 @@ class Contribution:
     raw_cp: float
     event_date: date
     is_award: bool = False
+    # The panel used to show one string, so "why did this move?" was answered
+    # with "Top Gun: Maverick (box office)" and nothing about the part he
+    # played in it. These are the same event, broken into columns that sort.
+    title: str = ""     # the film, or the award's category
+    role: str = ""      # Lead, Supporting, Director... or Won / Nominated
+    kind: str = ""      # Credit | Reception | Box office | Award | Snub
 
 
 @dataclass

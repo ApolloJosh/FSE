@@ -122,6 +122,46 @@ def price_history(conn: sqlite3.Connection, slug: str, limit: int = 400) -> list
         " ORDER BY on_date DESC LIMIT ?", (slug, limit)).fetchall()))
 
 
+def movers(conn: sqlite3.Connection, days: int = 365) -> list[sqlite3.Row]:
+    """Every stock's move over the last `days`, as one query rather than 247.
+
+    The reference point is the newest quote on or before the target date, so a
+    fortnightly seed and a nightly mark both work without special-casing.
+    """
+    on = latest_date(conn)
+    if not on:
+        return []
+    ref = conn.execute(
+        "SELECT MAX(on_date) AS d FROM prices WHERE on_date <= date(?, ?)",
+        (on, f"-{int(days)} days")).fetchone()
+    if not ref or not ref["d"] or ref["d"] == on:
+        return []
+    return conn.execute(
+        "SELECT n.slug, s.name, s.is_director, n.price, n.tier, o.price AS was,"
+        "       (n.price * 1.0 / o.price) - 1 AS change"
+        "  FROM prices n"
+        "  JOIN prices o ON o.slug = n.slug AND o.on_date = ?"
+        "  JOIN stocks s ON s.slug = n.slug"
+        " WHERE n.on_date = ? AND o.price > 0"
+        " ORDER BY change DESC", (ref["d"], on)).fetchall()
+
+
+def all_history(conn: sqlite3.Connection, days: int = 365
+                ) -> dict[str, list[sqlite3.Row]]:
+    """Every stock's recent points in one query, for the market table's
+    sparklines. 247 separate queries worked and was silly."""
+    on = latest_date(conn)
+    if not on:
+        return {}
+    rows = conn.execute(
+        "SELECT slug, on_date, price FROM prices WHERE on_date >= date(?, ?)"
+        " ORDER BY slug, on_date", (on, f"-{int(days)} days")).fetchall()
+    out: dict[str, list[sqlite3.Row]] = {}
+    for r in rows:
+        out.setdefault(r["slug"], []).append(r)
+    return out
+
+
 def record_prices(conn: sqlite3.Connection, on: date,
                   rows: list[dict[str, Any]]) -> int:
     """Upsert one day of prices, and the stock list alongside."""

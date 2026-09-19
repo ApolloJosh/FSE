@@ -64,3 +64,16 @@ def ensemble_scale(credit: Credit) -> float:
     if not total or total <= K.ENSEMBLE_WEIGHT_CAP:
         return 1.0
     return K.ENSEMBLE_WEIGHT_CAP / total
+
+
+def role_name(credit: Credit) -> str:
+    """The part, as a person would say it. Drives the why-it-moved panel."""
+    if credit.is_director:
+        return "Director"
+    if credit.medium == "series_season":
+        base = K.TV_ROLE_NAMES.get(credit.series_role or "regular", "Series")
+    else:
+        base = K.ROLE_NAMES.get(classify(credit), "Supporting")
+    if credit.is_voice:
+        base += " (voice)"
+    return base

@@ -30,6 +30,8 @@ SNAPSHOT = Path(os.environ.get("FSX_SNAPSHOT", ROOT / "data" / "people.json"))
 DB_PATH = Path(os.environ.get("FSX_DB", ROOT / "data" / "market.db"))
 
 IS_PRODUCTION = os.environ.get("FSX_ENV") == "production"
+# "Up and comers" needs a ceiling, and it should be one a new player can reach.
+SCOUT_CEILING = 30.0
 
 
 def _session_secret() -> str:
@@ -104,11 +106,11 @@ def market(request: Request, msg: Optional[str] = None, ok: int = 0):
     if user:
         held = {p["slug"]: p["shares"] for p in db.positions(conn(), user["id"])}
 
+    history = db.all_history(conn(), 365)
     rows = []
     for slug, row in prices.items():
-        history = db.price_history(conn(), slug, 120)
-        points = views.points_from(history)
-        earlier = [p for p in points if (points[-1].on - p.on).days >= 30]
+        points = views.points_from(history.get(slug, []))
+        earlier = [p for p in points if (points[-1].on - p.on).days >= 30] if points else []
         change = (points[-1].price / earlier[-1].price - 1) if earlier else None
         rows.append({
             "slug": slug, "name": row["name"], "is_director": row["is_director"],
@@ -117,7 +119,36 @@ def market(request: Request, msg: Optional[str] = None, ok: int = 0):
             "spark": sparkline(points) if len(points) > 1 else "",
         })
     rows.sort(key=lambda r: r["price"], reverse=True)
-    return views.market_page(rows, user, views.flash(msg, bool(ok)))
+    return views.market_page(rows, user, views.flash(msg, bool(ok)),
+                             movers=_movers_panel())
+
+
+def _movers_panel() -> str:
+    """Risers, fallers, and the ones still cheap enough to get in front of."""
+    year = db.movers(conn(), 365)
+    if not year:
+        return ""
+
+    def shape(row):
+        return {"slug": row["slug"], "name": row["name"],
+                "price": db.credits(row["price"]), "change": row["change"]}
+
+    risers = [shape(r) for r in year[:5]]
+    fallers = [shape(r) for r in reversed(year[-5:])]
+    # Cheap and climbing. The whole design says scouting beats hoarding, and
+    # this is the only place on the site that says where to scout - so it must
+    # not just repeat the risers, which is what it did when it did not exclude
+    # them: three of the five were already in the list above.
+    shown = {r["slug"] for r in risers}
+    coming = [shape(r) for r in year
+              if r["slug"] not in shown
+              and db.credits(r["price"]) <= SCOUT_CEILING and r["change"] > 0][:5]
+
+    return views.movers_panel([
+        ("This year's risers", "Biggest gain over twelve months", risers),
+        ("Up and comers", f"Climbing, still under CR {SCOUT_CEILING:.0f}", coming),
+        ("Off the boil", "Twelve months of decay or a bad year", fallers),
+    ])
 
 
 @app.get("/stock/{slug}", response_class=HTMLResponse)
@@ -131,29 +162,39 @@ def stock(request: Request, slug: str, msg: Optional[str] = None, ok: int = 0):
         return HTMLResponse(views.chrome("Not listed — Film Stock Exchange",
                                          body, user, depth=1), status_code=404)
 
-    points = views.points_from(db.price_history(conn(), slug, 400))
+    # Everything the database has, not a 400-day window: the chart is the
+    # career, and a career is the only thing that explains a price.
+    points = views.points_from(db.price_history(conn(), slug, 4000))
     pos = db.position(conn(), user["id"], slug) if user else None
     settle = None
     if pos:
         settle = SETTLEMENT_DAYS - days_between(pos["last_buy_on"], date.today())
 
-    from fsx.site import line_chart
-    chart = line_chart(points, row["name"]) if len(points) > 1 else (
-        '<p class="muted">Price history starts once the market has run overnight.</p>')
-
-    reasons = ""
+    events = []
     try:
         people, _ = load(SNAPSHOT)
         match = next((p for p in people if p.name == row["name"]), None)
         if match:
-            items = [(c, v) for c, v in explain(match) if abs(v) >= 0.5][:12]
-            reasons = "".join(
-                f'<tr><td class="date">{c.event_date.isoformat()}</td>'
-                f'<td>{esc(c.label)}</td>'
-                f'<td class="num {"up" if v > 0 else "down"}">{v:+,.0f}</td></tr>'
-                for c, v in items)
+            scored = [(c, v) for c, v in explain(match) if abs(v) >= 0.5]
+            events = [(f"e{i}", c, v) for i, (c, v) in enumerate(scored[:60])]
     except Exception:                                  # noqa: BLE001
-        reasons = ""
+        events = []
+
+    from fsx.site import line_chart
+    marks = [(ident, c.event_date, f"{c.title} — {c.kind} {v:+,.0f}")
+             for ident, c, v in events]
+    chart = line_chart(points, row["name"], marks) if len(points) > 1 else (
+        '<p class="muted">Price history starts once the market has run overnight.</p>')
+
+    reasons = "".join(
+        f'<tr data-event="{ident}" data-date="{c.event_date.isoformat()}"'
+        f' data-cp="{v:.1f}" tabindex="0">'
+        f'<td class="date">{c.event_date.isoformat()}</td>'
+        f'<td>{esc(c.title)}</td>'
+        f'<td class="muted">{esc(c.role)}</td>'
+        f'<td class="src">{esc(c.kind)}</td>'
+        f'<td class="num {"up" if v > 0 else "down"}">{v:+,.0f}</td></tr>'
+        for ident, c, v in events)
 
     change = None
     if len(points) > 1:
@@ -176,9 +217,68 @@ def stock(request: Request, slug: str, msg: Optional[str] = None, ok: int = 0):
 <h2>Price history</h2>
 {chart}
 <h2>Why it moved</h2>
-<table class="reasons"><thead><tr><th>Date</th><th>Event</th>
-<th class="num">CP</th></tr></thead><tbody>{reasons or
-'<tr><td colspan="3" class="muted">No scoring events on file.</td></tr>'}</tbody></table>
+<p class="muted" id="reasons-help">Every scoring event behind today's price,
+after decay. Click a row to find it on the chart; click a heading to sort.</p>
+<table class="reasons" id="reasons"><thead><tr>
+  <th class="date sortable" data-sort="date">Date</th>
+  <th>Film or award</th><th>Role</th><th>Event</th>
+  <th class="num sortable" data-sort="cp">CP</th>
+</tr></thead><tbody>{reasons or
+'<tr><td colspan="5" class="muted">No scoring events on file.</td></tr>'}</tbody></table>
+<script>
+// Two small things the panel was missing: which row is which mark on the
+// chart, and any order other than the one the engine happened to return.
+(function () {{
+  var table = document.getElementById('reasons');
+  if (!table) return;
+  var svg = document.querySelector('.chart svg');
+  var body = table.tBodies[0];
+
+  function select(row) {{
+    var on = !row.classList.contains('on');
+    [].forEach.call(body.rows, function (r) {{ r.classList.remove('on'); }});
+    if (svg) [].forEach.call(svg.querySelectorAll('.evt'), function (g) {{
+      g.classList.remove('on');
+    }});
+    if (!on) return;
+    row.classList.add('on');
+    var mark = svg && svg.querySelector('.evt[data-event="' + row.dataset.event + '"]');
+    if (mark) mark.classList.add('on');
+  }}
+  body.addEventListener('click', function (e) {{
+    var row = e.target.closest('tr');
+    if (row && row.dataset.event) select(row);
+  }});
+  body.addEventListener('keydown', function (e) {{
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var row = e.target.closest('tr');
+    if (row && row.dataset.event) {{ e.preventDefault(); select(row); }}
+  }});
+
+  var descending = {{}};
+  [].forEach.call(table.querySelectorAll('.sortable'), function (th) {{
+    th.addEventListener('click', function () {{
+      var key = th.dataset.sort;
+      // Default to the useful direction: newest first, biggest first.
+      descending[key] = key in descending ? !descending[key] : true;
+      var dir = descending[key] ? -1 : 1;
+      var rows = [].slice.call(body.rows).filter(function (r) {{
+        return r.dataset.event;
+      }});
+      rows.sort(function (a, b) {{
+        var x = a.dataset[key], y = b.dataset[key];
+        if (key === 'cp') {{ x = parseFloat(x); y = parseFloat(y); }}
+        return x < y ? -dir : x > y ? dir : 0;
+      }});
+      rows.forEach(function (r) {{ body.appendChild(r); }});
+      [].forEach.call(table.querySelectorAll('.sortable'), function (o) {{
+        o.removeAttribute('aria-sort');
+      }});
+      th.setAttribute('aria-sort', descending[key] ? 'descending' : 'ascending');
+    }});
+  }});
+}})();
+</script>
 """
     return views.chrome(f"{row['name']} — Film Stock Exchange", body, user, depth=1)
 

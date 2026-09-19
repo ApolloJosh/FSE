@@ -32,6 +32,19 @@ ROLE_WEIGHTS = {
     "cameo": 0.08,
     "uncredited": 0.00,
 }
+# What to call each of those where a person reads it.
+ROLE_NAMES = {
+    "sole_lead": "Lead",
+    "co_lead": "Co-lead",
+    "ensemble_lead": "Ensemble lead",
+    "major_supporting": "Major supporting",
+    "supporting": "Supporting",
+    "minor": "Minor role",
+    "cameo": "Cameo",
+    "uncredited": "Uncredited",
+}
+TV_ROLE_NAMES = {"regular": "Series regular", "recurring": "Recurring",
+                 "guest": "Guest"}
 VOICE_MULTIPLIER = 0.85
 ENSEMBLE_WEIGHT_CAP = 3.0   # total scored role weight allowed per film
 

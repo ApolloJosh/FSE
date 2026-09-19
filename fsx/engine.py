@@ -27,8 +27,10 @@ def credit_contributions(person: Person) -> list[Contribution]:
         if weight <= 0:
             continue
 
+        part = roles.role_name(credit)
         out.append(Contribution("working", f"{credit.title} (credit)",
-                                weight * K.WORKING_POINTS, credit.release_date))
+                                weight * K.WORKING_POINTS, credit.release_date,
+                                title=credit.title, role=part, kind="Credit"))
 
         from .reception import reception_cp
         rec_cp, _ = reception_cp(credit, weight)
@@ -39,14 +41,19 @@ def credit_contributions(person: Person) -> list[Contribution]:
         if rec_cp < 0 and box_cp < 0:
             combined = (rec_cp + box_cp) * K.BOMB_COMPOUND
             out.append(Contribution("bomb", f"{credit.title} (bomb)", combined,
-                                    credit.release_date))
+                                    credit.release_date, title=credit.title,
+                                    role=part, kind="Bomb"))
         else:
             if rec_cp:
                 out.append(Contribution("reception", f"{credit.title} (reception)",
-                                        rec_cp, credit.release_date))
+                                        rec_cp, credit.release_date,
+                                        title=credit.title, role=part,
+                                        kind="Reception"))
             if box_cp:
                 out.append(Contribution("box_office", f"{credit.title} (box office)",
-                                        box_cp, credit.release_date))
+                                        box_cp, credit.release_date,
+                                        title=credit.title, role=part,
+                                        kind="Box office"))
     return out
 
 

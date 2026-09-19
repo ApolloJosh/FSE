@@ -41,20 +41,26 @@ def award_contributions(person: Person, as_of: date | None = None) -> list[Contr
             critics_group_total += value
             out.append(Contribution("award",
                                     f"{award_name(award.key)} ({award.year})", value,
-                                    award.awarded_on, is_award=True))
+                                    award.awarded_on, is_award=True,
+                                    title=award.category or award_name(award.key),
+                                    role="Won", kind="Award"))
             continue
 
         if nom_cp:
             out.append(Contribution(
                 "award", f"{award_name(award.key)} nomination ({award.year})",
-                float(nom_cp), award.awarded_on, is_award=True))
+                float(nom_cp), award.awarded_on, is_award=True,
+                title=award.category or award_name(award.key),
+                role="Nominated", kind="Award"))
         if award.won:
             value = float(win_cp)
             if first_win is not None and award is first_win:
                 value *= K.FIRST_OSCAR_WIN_MULTIPLIER
             out.append(Contribution(
                 "award", f"{award_name(award.key)} win ({award.year})", value,
-                award.awarded_on, is_award=True))
+                award.awarded_on, is_award=True,
+                title=award.category or award_name(award.key),
+                role="Won", kind="Award"))
 
     out.extend(snub_contributions(person, as_of))
     return out
@@ -84,5 +90,7 @@ def snub_contributions(person: Person, as_of: date | None = None) -> list[Contri
         paid = sum(K.AWARD_TABLE[a.key][0] for a in precursors)
         out.append(Contribution(
             "snub", f"Oscar snub {year}", -paid * K.SNUB_CLAWBACK,
-            announced, is_award=True))
+            announced, is_award=True,
+            title=f"Precursors that did not convert ({year})",
+            role="Snubbed", kind="Snub"))
     return out

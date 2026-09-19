@@ -47,6 +47,12 @@ def trend_class(value: float | None) -> str:
 
 
 # ----------------------------------------------------------------------- charts
+# A price that moved 0.4% over a month filled the whole chart, because the
+# y-axis fitted itself to whatever range the data happened to have. The band is
+# now at least this fraction of the midpoint, so a flat month looks flat.
+MIN_BAND_FRACTION = 0.12
+
+
 def _scale(points: list[Point]):
     prices = [p.price for p in points]
     lo, hi = min(prices), max(prices)
@@ -54,6 +60,11 @@ def _scale(points: list[Point]):
         lo, hi = lo * 0.95, hi * 1.05 or 1.0
     span = hi - lo
     lo, hi = lo - span * 0.08, hi + span * 0.08
+
+    mid = (hi + lo) / 2
+    floor_band = abs(mid) * MIN_BAND_FRACTION
+    if hi - lo < floor_band:
+        lo, hi = mid - floor_band / 2, mid + floor_band / 2
     days = (points[-1].on - points[0].on).days or 1
 
     def x(p: Point) -> float:
@@ -65,9 +76,15 @@ def _scale(points: list[Point]):
     return x, y, lo, hi
 
 
-def line_chart(points: list[Point], label: str) -> str:
+def line_chart(points: list[Point], label: str, events=None) -> str:
     """One series, so no legend: the heading names it. Recessive grid, 2px line,
-    a marker and a direct label on the last point only."""
+    a marker and a direct label on the last point only.
+
+    `events` are (id, date, label) triples - the scoring events behind the
+    price. They draw as ticks along the foot of the chart, so the question
+    "which of these did that?" can be answered by looking rather than by
+    reading two tables and doing the dates in your head.
+    """
     if len(points) < 2:
         return '<p class="muted">Not enough history to chart.</p>'
 
@@ -94,11 +111,25 @@ def line_chart(points: list[Point], label: str) -> str:
     last = points[-1]
     data = json.dumps([[p.on.isoformat(), round(p.price, 2)] for p in points])
 
+    first_on, last_on = points[0].on, points[-1].on
+    span_days = (last_on - first_on).days or 1
+    marks = ""
+    for ident, on, text in (events or []):
+        if not (first_on <= on <= last_on):
+            continue      # older than the chart; the table still lists it
+        px = PAD_L + (on - first_on).days / span_days * (CHART_W - PAD_L - PAD_R)
+        marks += (f'<g class="evt" data-event="{esc(ident)}">'
+                  f'<title>{esc(text)}</title>'
+                  f'<line x1="{px:.1f}" x2="{px:.1f}" '
+                  f'y1="{PAD_T}" y2="{CHART_H - PAD_B}"/>'
+                  f'<circle cx="{px:.1f}" cy="{CHART_H - PAD_B}" r="3.5"/></g>')
+
     return f"""<figure class="chart">
 <svg viewBox="0 0 {CHART_W} {CHART_H}" role="img"
      aria-label="{esc(label)} price history, {points[0].on.year} to {last.on.year}"
      data-points='{esc(data)}' data-x0="{PAD_L}" data-x1="{CHART_W - PAD_R}">
   {grid}{xlabels}
+  <g class="events">{marks}</g>
   <path class="series" d="{path}"/>
   <circle class="dot" cx="{x(last):.1f}" cy="{y(last.price):.1f}" r="4.5"/>
   <text class="endlabel" x="{x(last) - 8:.1f}" y="{y(last.price) - 10:.1f}"
@@ -428,6 +459,10 @@ tbody tr:hover { background: var(--raised); }
 .dot, .hoverdot { fill: var(--series); stroke: var(--surface); stroke-width: 2; }
 .endlabel { fill: var(--ink); font-family: var(--mono); font-size: 12px; }
 .crosshair { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.evt line { stroke: var(--rule); stroke-width: 1; }
+.evt circle { fill: var(--rule); }
+.evt.on line { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 2 3; }
+.evt.on circle { fill: var(--ink); stroke: var(--surface); stroke-width: 2; }
 .tip { position: absolute; pointer-events: none; background: var(--raised);
   border: 1px solid var(--rule); padding: 5px 9px; font-family: var(--mono);
   font-size: .8rem; white-space: nowrap; transform: translate(-50%, -140%); }
@@ -437,6 +472,16 @@ tbody tr:hover { background: var(--raised); }
 .reasons .date, .credits .date { font-family: var(--mono); color: var(--muted);
   font-size: .86rem; white-space: nowrap; }
 .reasons .src { color: var(--muted); font-size: .86rem; }
+.reasons tbody tr { cursor: pointer; }
+.reasons tbody tr:hover { background: var(--raised); }
+.reasons tbody tr.on { background: var(--raised); box-shadow: inset 3px 0 0 var(--ink); }
+.reasons tbody { display: block; max-height: 30rem; overflow-y: auto; }
+.reasons thead, .reasons tbody tr { display: table; width: 100%; table-layout: fixed; }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: var(--ink); }
+th.sortable::after { content: " ↕"; opacity: .35; }
+th.sortable[aria-sort="descending"]::after { content: " ↓"; opacity: 1; }
+th.sortable[aria-sort="ascending"]::after { content: " ↑"; opacity: 1; }
 .parts tfoot td { font-weight: 600; border-bottom: none; }
 .prose { max-width: 68ch; padding-top: 40px; }
 .prose p { color: var(--ink-2); }
