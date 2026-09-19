@@ -1,26 +1,52 @@
-# Film Stock Exchange — Phase 0
+# Film Stock Exchange
 
-The price engine, and a script that prints a ranked list. No UI, no accounts.
+A price engine for a market in film talent, and the read-only site that
+publishes it. Prices move on awards, box office and critical reception, and on
+nothing else.
 
-Phase 0 answers one question: **does a film-literate person read the ranked list
-and find it defensible?** If the list never looks right, the design is wrong and
-nothing else matters. Everything here exists to produce that list.
+**Phase 0** answered one question: does a film-literate person read the ranked
+list and find it defensible? **Phase 1** is this site — public prices, charts,
+and an explanation of every move. No accounts, no trading.
 
 ## Run it
 
 ```bash
 pip install -r requirements.txt
+python3 -m pytest tests/ -q      # 131 tests
 
-python3 -m fsx.cli fixtures     # 25 hand-entered careers, no API key needed
-python3 -m fsx.cli reference    # the six careers the constants were fitted to
-python3 -m pytest tests/ -q     # 53 tests pinning the engine to the design doc
+python3 -m fsx.cli snapshot      # fixture careers -> data/people.json, no keys
+python3 -m fsx.cli site          # build the market into site/
+python3 -m http.server -d site 8000
 ```
 
 With API keys in `.env` (copy `.env.example`):
 
 ```bash
-python3 -m fsx.cli backfill roster.example.txt
+python3 -m fsx.cli backfill roster.txt --max-credits 60   # fetch + snapshot
+python3 -m fsx.cli site                                   # render
 ```
+
+## The site
+
+`fsx.cli site` reads `data/people.json` and writes a static `site/` — no server,
+no database. Fetching and rendering are deliberately split: a rebuild takes under
+a second offline, and a bad render can never cost an API quota.
+
+- **The market** — every stock ranked, with 1-year and 90-day moves and a
+  5-year sparkline.
+- **A stock page** — price history, and a *why it moved* panel listing the
+  largest scoring events behind today's price. A market game whose prices cannot
+  be interrogated is a black box.
+- **How prices work** — the formula, in plain language.
+- **`market.json`** — the whole market as data, for whatever comes next.
+
+Price history is computed, not accumulated. The engine takes an as-of date, so
+running it backwards produces the real series a career would have had — day one
+ships with years of chart.
+
+`.github/workflows/rebuild.yml` rebuilds nightly and deploys to GitHub Pages. If
+the API keys are absent it still builds from the committed snapshot, so a data
+outage serves yesterday's prices rather than taking the site down.
 
 ## How a price is made
 

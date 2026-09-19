@@ -1,0 +1,274 @@
+# Film Stock Exchange - launch roster
+# One name per line. Append * to score someone as a director.
+# Lines starting with # are ignored, so you can comment people out.
+#
+# This is a STARTING DRAFT - edit it. The sections exist so you can see the
+# shape of the roster, not because the engine cares; it reads names only.
+# What matters for Phase 0 is the spread: if you only list A-listers you
+# cannot tell whether the Working tier prices sensibly.
+
+# --- Legends and A-list -----------------------------------------------------
+Meryl Streep
+Tom Cruise
+Denzel Washington
+Leonardo DiCaprio
+Tom Hanks
+Brad Pitt
+Julia Roberts
+Nicole Kidman
+Viola Davis
+Cate Blanchett
+Daniel Day-Lewis
+Anthony Hopkins
+Judi Dench
+Helen Mirren
+Morgan Freeman
+Robert De Niro
+Al Pacino
+Jodie Foster
+Frances McDormand
+Samuel L. Jackson
+Harrison Ford
+Sigourney Weaver
+Michelle Pfeiffer
+Glenn Close
+Kate Winslet
+Christian Bale
+Joaquin Phoenix
+Matt Damon
+George Clooney
+Charlize Theron
+Emma Thompson
+Ralph Fiennes
+Gary Oldman
+Willem Dafoe
+Tilda Swinton
+Javier Bardem
+Penelope Cruz
+Michelle Yeoh
+Jackie Chan
+Ke Huy Quan
+
+# --- Established leads ------------------------------------------------------
+Ryan Gosling
+Emma Stone
+Margot Robbie
+Ryan Reynolds
+Chris Hemsworth
+Chris Evans
+Scarlett Johansson
+Robert Downey Jr.
+Mark Ruffalo
+Elizabeth Olsen
+Paul Rudd
+Benedict Cumberbatch
+Tom Hardy
+Idris Elba
+Oscar Isaac
+Adam Driver
+Rachel Weisz
+Amy Adams
+Jessica Chastain
+Rooney Mara
+Carey Mulligan
+Saoirse Ronan
+Brie Larson
+Jennifer Lawrence
+Anne Hathaway
+Natalie Portman
+Zoe Saldana
+Chris Pratt
+Dave Bautista
+Karen Gillan
+Sebastian Stan
+Anthony Mackie
+Don Cheadle
+Jeremy Strong
+Kieran Culkin
+Sarah Snook
+Matthew Macfadyen
+Brian Cox
+Colin Farrell
+Brendan Gleeson
+Cillian Murphy
+Emily Blunt
+Rebecca Ferguson
+Josh Brolin
+Zendaya
+Austin Butler
+Jesse Plemons
+Kirsten Dunst
+Toni Collette
+Laura Dern
+Regina King
+Octavia Spencer
+Sterling K. Brown
+Daniel Kaluuya
+LaKeith Stanfield
+John David Washington
+Tessa Thompson
+Lupita Nyong'o
+Danai Gurira
+Letitia Wright
+Mahershala Ali
+Timothee Chalamet
+Florence Pugh
+Anya Taylor-Joy
+Robert Pattinson
+Andrew Garfield
+Dev Patel
+Riz Ahmed
+Rami Malek
+Steven Yeun
+
+# --- Character actors (this is what tests the Working tier) ------------------
+Stephen Root
+John Carroll Lynch
+Margo Martindale
+Richard Jenkins
+J.K. Simmons
+Walton Goggins
+Michael Shannon
+Shea Whigham
+Bill Camp
+Ann Dowd
+Melissa Leo
+Stephen McKinley Henderson
+Clarke Peters
+Delroy Lindo
+Giancarlo Esposito
+Luis Guzman
+Danny Trejo
+Clancy Brown
+CCH Pounder
+Alfre Woodard
+Wendell Pierce
+Jeffrey Wright
+Colman Domingo
+Brian Tyree Henry
+David Morse
+Peter Sarsgaard
+Tracy Letts
+Jared Harris
+Toby Jones
+Mark Strong
+Eddie Marsan
+Paddy Considine
+Peter Mullan
+Jim Broadbent
+Timothy Spall
+Brenda Blethyn
+Imelda Staunton
+Olivia Colman
+Sally Hawkins
+Ruth Negga
+Paul Giamatti
+Bob Odenkirk
+Rhea Seehorn
+Jonathan Banks
+James Hong
+John Cho
+Randall Park
+Youn Yuh-jung
+Song Kang-ho
+Lee Jung-jae
+Sandra Huller
+Nina Hoss
+Franz Rogowski
+Judith Light
+Catherine O'Hara
+Fred Hechinger
+
+# --- Rising and recent breakouts (the scouting pool) -------------------------
+Mikey Madison
+Dominic Sessa
+Sophie Wilde
+Stephanie Hsu
+Margaret Qualley
+Barry Keoghan
+Paul Mescal
+Daisy Edgar-Jones
+Jacob Elordi
+Cailee Spaeny
+Rachel Sennott
+Ayo Edebiri
+Jeremy Allen White
+Jenna Ortega
+Hunter Schafer
+Archie Madekwe
+Aaron Pierre
+Teyana Taylor
+Dominique Fishback
+Lily Gladstone
+Devery Jacobs
+Danielle Deadwyler
+Naomi Ackie
+Marisa Abela
+Mia McKenna-Bruce
+Harris Dickinson
+Josh O'Connor
+Nicholas Galitzine
+Anna Sawai
+Charles Melton
+Teo Yoo
+Greta Lee
+Callum Turner
+Jharrel Jerome
+Amandla Stenberg
+Kaitlyn Dever
+Maisy Stella
+Izaac Wang
+Alison Oliver
+Havana Rose Liu
+
+# --- Directors --------------------------------------------------------------
+Christopher Nolan*
+Steven Spielberg*
+Martin Scorsese*
+Quentin Tarantino*
+Denis Villeneuve*
+Greta Gerwig*
+Jordan Peele*
+Bong Joon-ho*
+Park Chan-wook*
+Hirokazu Kore-eda*
+Celine Sciamma*
+Lynne Ramsay*
+Andrea Arnold*
+Sofia Coppola*
+Wes Anderson*
+Paul Thomas Anderson*
+Yorgos Lanthimos*
+Ari Aster*
+Robert Eggers*
+Jane Campion*
+Chloe Zhao*
+Ryan Coogler*
+Barry Jenkins*
+Ava DuVernay*
+Spike Lee*
+Alfonso Cuaron*
+Guillermo del Toro*
+Damien Chazelle*
+Emerald Fennell*
+Justine Triet*
+Jonathan Glazer*
+Sean Baker*
+Coralie Fargeat*
+Celine Song*
+RaMell Ross*
+Payal Kapadia*
+Luca Guadagnino*
+Todd Haynes*
+Todd Field*
+Kelly Reichardt*
+Mike Leigh*
+Joel Coen*
+Josh Safdie*
+Benny Safdie*
+Rian Johnson*
+Taika Waititi*
+James Gunn*
+Matt Reeves*
+Jon M. Chu*
+Baz Luhrmann*

@@ -1,9 +1,12 @@
-__pycache__/
+
+# the built site is regenerated, never committed
 *.py[cod]
-.venv/
-venv/
-.env
-.cache/
-out/
 .DS_Store
+.cache/
+.env
 .pytest_cache/
+.venv/
+__pycache__/
+out/
+site/
+venv/

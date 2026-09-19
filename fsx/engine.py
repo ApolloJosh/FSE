@@ -116,6 +116,25 @@ def value_person(person: Person, as_of: date | None = None) -> Valuation:
     )
 
 
+def explain(person: Person, as_of: date | None = None
+            ) -> list[tuple[Contribution, float]]:
+    """Every scoring event with its decayed value, biggest effect first.
+
+    This is what powers the "why did this move?" panel. A market game whose
+    prices cannot be interrogated is a black box, and nobody trusts a black box
+    holding their portfolio.
+    """
+    as_of = as_of or date.today()
+    valuation = value_person(person, as_of)
+    _, age_rate, _ = decay.tier_for_cp(valuation.cp)
+
+    out = []
+    for c in all_contributions(person, as_of):
+        age = max(0.0, (as_of - c.event_date).days / 365.25)
+        out.append((c, c.raw_cp * decay.age_factor(age, age_rate) * valuation.idle_factor))
+    return sorted(out, key=lambda pair: abs(pair[1]), reverse=True)
+
+
 def apply_event(current_cp: float, delta_cp: float) -> float:
     """Apply one event with the single-event loss cap, then the floor."""
     if delta_cp < 0:

@@ -21,6 +21,7 @@ from .engine import value_person
 from .models import Person, Valuation
 
 OUT_DIR = Path(__file__).resolve().parents[1] / "out"
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
 
 def _load_env() -> None:
@@ -86,6 +87,35 @@ def cmd_fixtures(args) -> int:
     print(f"\nWrote {out}")
     print("\nThese figures come from hand-entered approximations, not live data.")
     print("They test whether the engine orders people sensibly, nothing more.")
+    return 0
+
+
+def cmd_snapshot(args) -> int:
+    """Write the hand-entered fixtures out as a snapshot, so the site can be
+    built and looked at before a real backfill exists."""
+    from .fixtures.careers import roster
+    from .store import save
+    path = save(roster(), DATA_DIR / "people.json")
+    print(f"Wrote {path} from the fixture careers.")
+    print("These are hand-entered approximations - fine for seeing the site, "
+          "not for publishing a price.")
+    return 0
+
+
+def cmd_site(args) -> int:
+    """Render the read-only market from a snapshot. No network, no keys."""
+    from .site import build
+    snapshot = Path(args.snapshot)
+    if not snapshot.exists():
+        print(f"No snapshot at {snapshot}.", file=sys.stderr)
+        print("Run 'fsx snapshot' for the fixtures, or 'fsx backfill' for real "
+              "data, then try again.", file=sys.stderr)
+        return 1
+
+    result = build(snapshot, Path(args.out), years=args.years)
+    print(f"Built {result['people']} stock pages into {result['out']}")
+    print(f"Data snapshot fetched {result['fetched'] or 'unknown'}")
+    print(f"\nOpen it:  python3 -m http.server -d {args.out} 8000")
     return 0
 
 
@@ -208,11 +238,15 @@ def cmd_backfill(args) -> int:
         print("Nothing to rank.", file=sys.stderr)
         return 1
 
+    from .store import save
+    snapshot = save(people, DATA_DIR / "people.json")
+
     values = rank(people)
     print_table(values, args.limit)
     print_distribution(values)
     out = write_csv(values, OUT_DIR / "backfill_ranked.csv")
     print(f"\nWrote {out}")
+    print(f"Wrote {snapshot} - the site builds from this, offline.")
     print(f"\nFilled: {stats['omdb']} credits from OMDb, "
           f"{stats['wikidata_scores']} scores from Wikidata, "
           f"{stats['wikipedia_money']} money fields from Wikipedia, "
@@ -234,6 +268,13 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("fixtures", help="rank the hand-entered careers")
     sub.add_parser("reference", help="rank the six design-doc reference careers")
+    sub.add_parser("snapshot", help="write the fixture careers to data/people.json")
+
+    site = sub.add_parser("site", help="build the read-only market site")
+    site.add_argument("--snapshot", default="data/people.json")
+    site.add_argument("--out", default="site")
+    site.add_argument("--years", type=int, default=5,
+                      help="years of price history to chart (default 5)")
 
     backfill = sub.add_parser("backfill", help="rank real people from TMDB + OMDb")
     backfill.add_argument("roster", help="text file, one name per line, * for directors")
@@ -245,6 +286,7 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
     return {"fixtures": cmd_fixtures, "reference": cmd_reference,
+            "snapshot": cmd_snapshot, "site": cmd_site,
             "backfill": cmd_backfill}[args.command](args)
 
 

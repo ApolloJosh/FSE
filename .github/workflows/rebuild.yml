@@ -1,0 +1,57 @@
+name: Rebuild the market
+
+on:
+  schedule:
+    - cron: "17 9 * * *"     # 09:17 UTC daily, off the hour to be polite
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+
+      - name: Tests
+        run: python -m pytest tests/ -q
+
+      # Refetch only when the keys are set. Without them the build still runs,
+      # from the snapshot already committed - a data outage never takes the
+      # site down, it just serves yesterday's prices.
+      - name: Refresh data
+        if: ${{ secrets.TMDB_READ_ACCESS_TOKEN != '' }}
+        env:
+          TMDB_READ_ACCESS_TOKEN: ${{ secrets.TMDB_READ_ACCESS_TOKEN }}
+          OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
+        run: python -m fsx.cli backfill roster.txt --max-credits 60 || true
+
+      - name: Build the site
+        run: python -m fsx.cli site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
