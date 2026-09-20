@@ -45,8 +45,7 @@ def hub(request: Request, msg: Optional[str] = None, ok: int = 0):
     return views.hub(summary, unavailable, user, on,
                      scoring.streak_length(conn, user["id"], on),
                      bool(weekly_row and weekly_row["done"]), msg or "", bool(ok),
-                     csrf=app_auth.csrf_token(request),
-                     can_reset=app_auth.dev_login_allowed())
+                     csrf=app_auth.csrf_token(request))
 
 
 @router.post("/play/reset")

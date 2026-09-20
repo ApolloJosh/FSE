@@ -16,7 +16,7 @@ from .scoring import DAILY_GAMES, PAYOUTS
 
 def hub(summary: dict, unavailable: dict[str, str], user, on: date,
         streak: int, weekly_done: bool, msg: str = "", ok: bool = False,
-        csrf: str = "", can_reset: bool = False) -> str:
+        csrf: str = "") -> str:
     cards = ""
     for game in GAMES:
         title, blurb = TITLES[game]
@@ -37,9 +37,10 @@ def hub(summary: dict, unavailable: dict[str, str], user, on: date,
   <td><strong>{esc(title)}</strong><br><span class="muted">{esc(blurb)}</span></td>
   <td>{state}</td><td class="num">{action}</td></tr>"""
 
-    reset = ""
-    if can_reset:
-        reset = f"""<form method="post" action="play/reset" class="reset">
+    # No condition on this. It used to be hidden unless the local test player
+    # was enabled, which is off in production - so the button existed, the
+    # route allowed it, and nobody could see it.
+    reset = f"""<form method="post" action="play/reset" class="reset">
   <input type="hidden" name="csrf" value="{esc(csrf)}">
   <button class="btn ghost">Play today's games again</button>
   <span class="muted">For practice. You keep what you earned, and a replay

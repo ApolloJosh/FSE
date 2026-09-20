@@ -351,6 +351,24 @@ def test_anyone_can_replay_the_day(client):
     assert row is not None and not row["done"], "the day should be open again"
 
 
+def test_the_replay_button_is_visible_in_production(client, monkeypatch):
+    """The control has to exist where the players are.
+
+    The first cut opened the /play/reset route to everyone but left the button
+    itself behind dev_login_allowed(), which is False on the deployed site. The
+    action was permitted and nobody could reach it. Pin the hub, not the route.
+    """
+    from app import auth as app_auth
+
+    monkeypatch.setattr(app_auth, "dev_login_allowed", lambda: False)
+    c, conn = client
+    sign_in(c, conn)
+    page = c.get("/play")
+    assert page.status_code == 200
+    assert 'action="play/reset"' in page.text
+    assert "Play today's games again" in page.text
+
+
 def test_a_replay_pays_nothing(client):
     """The day is worth exactly one payout however many times it is played."""
     from datetime import date as _date
