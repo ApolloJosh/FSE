@@ -114,6 +114,18 @@ Setting a secret restarts the app on its own. Give it a few seconds, then load
 `https://film-stock-exchange.fly.dev/signin` — "Continue with Github" should be
 there.
 
+### If GitHub says the redirect_uri is not associated
+
+The app built an `http://` redirect and GitHub has an `https://` one
+registered. Fly terminates TLS at its proxy and forwards plain HTTP, and
+uvicorn honours `X-Forwarded-Proto` only from addresses it trusts — loopback by
+default, which the proxy is not. The Dockerfile passes `--proxy-headers
+--forwarded-allow-ips "*"` to fix it, so if you see this, redeploy:
+
+```bash
+fly deploy
+```
+
 ### Google, when you want it
 
 Cloud Console → Credentials → **Create credentials** → OAuth client ID → Web

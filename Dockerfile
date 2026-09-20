@@ -17,4 +17,11 @@ ENV FSX_DB=/data/market.db
 VOLUME /data
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Fly terminates TLS at its proxy and forwards plain HTTP to this port, so
+# without these the app believes it is being browsed over http:// - it builds
+# an http:// OAuth redirect_uri and GitHub refuses it. uvicorn reads
+# X-Forwarded-Proto only from trusted addresses, and the default trusted list
+# is loopback, which the proxy is not. The internal port is not publicly
+# reachable, so trusting the proxy here is safe.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", \
+     "--proxy-headers", "--forwarded-allow-ips", "*"]

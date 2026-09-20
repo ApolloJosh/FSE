@@ -471,13 +471,29 @@ def dev_signin(request: Request):
     return RedirectResponse("/", status_code=303)
 
 
+def callback_url(request: Request, provider: str) -> str:
+    """The redirect_uri handed to the provider, which must match what is
+    registered there exactly - scheme included.
+
+    Behind a TLS-terminating proxy the app is reached over plain HTTP, so
+    url_for builds http://... and the provider refuses it: "The redirect_uri is
+    not associated with this application". The Dockerfile tells uvicorn to
+    trust the proxy's X-Forwarded-Proto, which fixes it properly; this is the
+    belt to that pair of braces, because the failure is invisible until someone
+    tries to sign in and the message does not say what is wrong.
+    """
+    url = request.url_for("callback", provider=provider)
+    if IS_PRODUCTION and url.scheme != "https":
+        url = url.replace(scheme="https")
+    return str(url)
+
+
 @app.get("/auth/{provider}")
 async def authorize(request: Request, provider: str):
     if provider not in PROVIDERS:
         return RedirectResponse("/signin", status_code=303)
     client = getattr(auth.oauth, provider)
-    return await client.authorize_redirect(
-        request, str(request.url_for("callback", provider=provider)))
+    return await client.authorize_redirect(request, callback_url(request, provider))
 
 
 @app.get("/auth/{provider}/callback", name="callback")

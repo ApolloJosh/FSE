@@ -361,3 +361,25 @@ def test_the_replay_button_is_refused_in_production(client, monkeypatch):
     monkeypatch.setattr(auth, "dev_login_allowed", lambda: False)
     c.post("/play/reset", data={"csrf": token}, follow_redirects=False)
     assert play.get(conn, user_id, "ladder", _date.today()) is not None
+
+
+def test_the_oauth_callback_is_https_in_production(client, monkeypatch):
+    """Behind a TLS-terminating proxy the app is reached over plain HTTP, so
+    url_for builds http:// and GitHub answers "The redirect_uri is not
+    associated with this application"."""
+    from starlette.requests import Request
+
+    from app import main
+
+    scope = {"type": "http", "method": "GET", "path": "/auth/github",
+             "headers": [(b"host", b"film-stock-exchange.fly.dev")],
+             "scheme": "http", "server": ("film-stock-exchange.fly.dev", 80),
+             "query_string": b"", "root_path": "", "app": main.app}
+    request = Request(scope)
+
+    monkeypatch.setattr(main, "IS_PRODUCTION", False)
+    assert main.callback_url(request, "github").startswith("http://")
+
+    monkeypatch.setattr(main, "IS_PRODUCTION", True)
+    assert main.callback_url(request, "github") == (
+        "https://film-stock-exchange.fly.dev/auth/github/callback")
