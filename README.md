@@ -252,7 +252,9 @@ quarterly dividends of 0.5% plus 0.25% per full year held, capped at 2%.
 ### The nightly job
 
 `python -m app.jobs mark` reprices the market from the snapshot and marks every
-position through the conviction ladder. It is **idempotent** — a day already
+position through the conviction ladder. Deployed, the same job runs behind
+`POST /jobs/mark`, called by `.github/workflows/mark.yml` and guarded by
+`FSX_JOB_TOKEN` — see DEPLOY.md for why it is an HTTP call and not a cron. It is **idempotent** — a day already
 marked is never marked twice, however many times it runs, because paying a gain
 twice is the one failure nobody would spot.
 

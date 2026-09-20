@@ -146,6 +146,49 @@ read-only and nobody can sign in.
 
 ## The nightly job
 
+Prices move because something reprices them. Nothing on Fly does that by
+itself, and until this is set up the market is frozen at whatever date it was
+seeded on.
+
+It cannot be a scheduled machine: SQLite lives on a volume, a Fly volume
+attaches to one machine at a time, and the web app is holding it. It cannot be
+an in-process timer either, because the machine suspends when nobody is
+browsing. So the web app runs the job when asked over HTTP, and the request
+also wakes the machine — which is what `auto_start_machines` is for.
+
+Pick a token, give it to Fly:
+
+```bash
+fly secrets set FSX_JOB_TOKEN=$(openssl rand -hex 32)
+```
+
+Read it back so you can paste it into GitHub:
+
+```bash
+fly ssh console -C "printenv FSX_JOB_TOKEN"
+```
+
+Then in the repo: **Settings → Secrets and variables → Actions → New
+repository secret**, twice:
+
+| name | value |
+| --- | --- |
+| `FSX_JOB_TOKEN` | the token you just made |
+| `FSX_HOST` | `film-stock-exchange.fly.dev` |
+
+`.github/workflows/mark.yml` fires at 09:40 UTC daily, and can be run by hand
+from the Actions tab. Marking is idempotent — a day already marked is never
+marked twice — so a retry, a double fire or an impatient second click all do
+nothing.
+
+To run it once yourself:
+
+```bash
+curl -X POST -H "Authorization: Bearer YOUR_TOKEN" https://film-stock-exchange.fly.dev/jobs/mark
+```
+
+## The nightly job, by hand
+
 Prices move every night without refetching anything, because decay is driven by
 the date. So the nightly job is cheap and offline:
 

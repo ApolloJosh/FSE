@@ -383,3 +383,36 @@ def test_the_oauth_callback_is_https_in_production(client, monkeypatch):
     monkeypatch.setattr(main, "IS_PRODUCTION", True)
     assert main.callback_url(request, "github") == (
         "https://film-stock-exchange.fly.dev/auth/github/callback")
+
+
+# ------------------------------------------------------------------- the job
+def test_the_mark_endpoint_is_closed_without_a_token(client, monkeypatch):
+    from app import main
+    c, _ = client
+    monkeypatch.setattr(main, "JOB_TOKEN", "")
+    assert c.post("/jobs/mark").status_code == 404
+
+
+def test_the_mark_endpoint_refuses_a_wrong_token(client, monkeypatch):
+    from app import main
+    c, _ = client
+    monkeypatch.setattr(main, "JOB_TOKEN", "right")
+    assert c.post("/jobs/mark").status_code == 403
+    assert c.post("/jobs/mark",
+                  headers={"Authorization": "Bearer wrong"}).status_code == 403
+
+
+def test_the_mark_endpoint_runs_and_is_idempotent(client, monkeypatch, tmp_path):
+    """Marking twice must not pay a gain twice - the one failure nobody spots."""
+    from app import main
+    c, conn = client
+    monkeypatch.setattr(main, "JOB_TOKEN", "right")
+    from fsx.store import save
+    snapshot = tmp_path / "people.json"
+    save([], snapshot)
+    monkeypatch.setattr(main, "SNAPSHOT", snapshot)
+
+    first = c.post("/jobs/mark", headers={"Authorization": "Bearer right"})
+    assert first.status_code == 200 and first.json()["ok"] is True
+    second = c.post("/jobs/mark", headers={"Authorization": "Bearer right"})
+    assert second.status_code == 200 and second.json()["skipped"] is True

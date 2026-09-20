@@ -13,7 +13,7 @@ from pathlib import Path
 
 from typing import Optional
 
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
@@ -531,3 +531,33 @@ def about(request: Request):
 def healthz():
     latest = db.latest_date(conn())
     return {"ok": True, "prices_as_of": latest}
+
+
+# ------------------------------------------------------------------- the job
+# The nightly reprice has to be triggered from outside. A scheduled machine
+# cannot do it: SQLite lives on a volume, a Fly volume attaches to one machine
+# at a time, and the web app is holding it. And an in-process timer cannot do
+# it either, because the machine suspends when nobody is browsing.
+#
+# So the web app runs the job itself, woken by an HTTP request - which is what
+# auto_start_machines is for. Marking is already idempotent, so a retry, a
+# double fire or a nervous second click all do nothing.
+JOB_TOKEN = os.environ.get("FSX_JOB_TOKEN", "")
+
+
+@app.post("/jobs/mark")
+def run_mark(request: Request, dividends: int = 0):
+    import secrets as _secrets
+
+    if not JOB_TOKEN:
+        raise HTTPException(status_code=404, detail="No job token configured.")
+    header = request.headers.get("authorization", "")
+    offered = header[7:] if header.lower().startswith("bearer ") else ""
+    if not _secrets.compare_digest(offered, JOB_TOKEN):
+        raise HTTPException(status_code=403, detail="Bad job token.")
+
+    from . import marking
+    report = marking.run(conn(), SNAPSHOT, date.today(), with_dividends=bool(dividends))
+    return {"ok": True, "on": date.today().isoformat(), "skipped": report.skipped,
+            "stocks": report.stocks, "positions": report.positions,
+            "gains": report.gains, "losses": report.losses}
