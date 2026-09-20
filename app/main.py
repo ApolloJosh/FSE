@@ -8,7 +8,7 @@ a price. Prices come from the engine and nothing else.
 from __future__ import annotations
 
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from typing import Optional
@@ -33,6 +33,29 @@ BUNDLED_SNAPSHOT = ROOT / "data" / "people.json"
 # On a host with a volume it lives there, seeded from the image on first boot.
 SNAPSHOT = Path(os.environ.get("FSX_SNAPSHOT", BUNDLED_SNAPSHOT))
 DB_PATH = Path(os.environ.get("FSX_DB", ROOT / "data" / "market.db"))
+
+
+_SNAPSHOT_CACHE: dict[str, object] = {}
+
+
+def people_from_snapshot():
+    """The snapshot, parsed once per version rather than once per request.
+
+    It is six megabytes of JSON and the stock page reads it on every view. The
+    key is the file's mtime and size, so a snapshot posted by the nightly job
+    is picked up on the next request without a restart.
+    """
+    try:
+        stat = SNAPSHOT.stat()
+    except OSError:
+        return []
+    stamp = (stat.st_mtime_ns, stat.st_size)
+    if _SNAPSHOT_CACHE.get("stamp") != stamp:
+        people, _ = load(SNAPSHOT)
+        _SNAPSHOT_CACHE.clear()
+        _SNAPSHOT_CACHE["stamp"] = stamp
+        _SNAPSHOT_CACHE["people"] = people
+    return _SNAPSHOT_CACHE.get("people") or []
 
 
 def _seed_snapshot() -> None:
@@ -124,7 +147,9 @@ def market(request: Request, msg: Optional[str] = None, ok: int = 0):
     if user:
         held = {p["slug"]: p["shares"] for p in db.positions(conn(), user["id"])}
 
-    history = db.all_history(conn(), 365)
+    # Three years, not one: a sparkline off twelve fortnightly points is a
+    # squiggle, and the billboard sets them large enough to read as a shape.
+    history = db.all_history(conn(), 1100)
     rows = []
     for slug, row in prices.items():
         points = views.points_from(history.get(slug, []))
@@ -137,8 +162,9 @@ def market(request: Request, msg: Optional[str] = None, ok: int = 0):
             "spark": sparkline(points) if len(points) > 1 else "",
         })
     rows.sort(key=lambda r: r["price"], reverse=True)
+    latest = db.latest_date(conn()) or ""
     return views.market_page(rows, user, views.flash(msg, bool(ok)),
-                             movers=_movers_panel())
+                             movers=_movers_panel(), as_of=latest)
 
 
 def _movers_panel() -> str:
@@ -169,8 +195,18 @@ def _movers_panel() -> str:
     ])
 
 
-@app.get("/stock/{slug}", response_class=HTMLResponse)
-def stock(request: Request, slug: str, msg: Optional[str] = None, ok: int = 0):
+SPANS = {"1y": ("1 year", 370), "5y": ("5 years", 1835),
+         "10y": ("10 years", 3660), "all": ("All", 40000)}
+
+
+@app.get("/stock/{slug}", response_class=HTMLResponse, name="stock")
+def stock_spanned(request: Request, slug: str, msg: Optional[str] = None,
+                  ok: int = 0, span: str = "10y"):
+    return stock(request, slug, msg, ok, span)
+
+
+def stock(request: Request, slug: str, msg: Optional[str] = None, ok: int = 0,
+          span: str = "10y"):
     user = current_user(request)
     prices = db.latest_prices(conn())
     row = prices.get(slug)
@@ -180,9 +216,17 @@ def stock(request: Request, slug: str, msg: Optional[str] = None, ok: int = 0):
         return HTMLResponse(views.chrome("Not listed — Film Stock Exchange",
                                          body, user, depth=1), status_code=404)
 
-    # Everything the database has, not a 400-day window: the chart is the
-    # career, and a career is the only thing that explains a price.
-    points = views.points_from(db.price_history(conn(), slug, 4000))
+    if span not in SPANS:
+        span = "10y"
+    label, days = SPANS[span]
+    # Ten years by default: the chart is the career, and a career does not fit
+    # in the 400-day window this used to draw.
+    everything = views.points_from(db.price_history(conn(), slug, 40000))
+    if everything and span != "all":
+        cutoff = everything[-1].on - timedelta(days=days)
+        points = [p for p in everything if p.on >= cutoff] or everything
+    else:
+        points = everything
     pos = db.position(conn(), user["id"], slug) if user else None
     settle = None
     if pos:
@@ -190,13 +234,18 @@ def stock(request: Request, slug: str, msg: Optional[str] = None, ok: int = 0):
 
     events = []
     try:
-        people, _ = load(SNAPSHOT)
-        match = next((p for p in people if p.name == row["name"]), None)
+        match = next((p for p in people_from_snapshot() if p.name == row["name"]),
+                     None)
         if match:
             scored = [(c, v) for c, v in explain(match) if abs(v) >= 0.5]
             events = [(f"e{i}", c, v) for i, (c, v) in enumerate(scored[:60])]
     except Exception:                                  # noqa: BLE001
         events = []
+
+    spans = "".join(
+        f'<a class="{"on" if key == span else ""}" '
+        f'href="?span={key}">{esc(name)}</a>'
+        for key, (name, _) in SPANS.items())
 
     from fsx.site import line_chart
     marks = [(ident, c.event_date, f"{c.title} — {c.kind} {v:+,.0f}")
@@ -223,6 +272,7 @@ def stock(request: Request, slug: str, msg: Optional[str] = None, ok: int = 0):
     body = f"""
 <nav class="crumb"><a href="../">← The market</a></nav>
 <header class="stockhead">
+  <p class="over">{"Directing" if row["is_director"] else "Starring"}</p>
   <h1>{esc(row['name'])}</h1>
   <div class="quote">
     <span class="big">{money(db.credits(row['price']))}</span><span class="unit">CR</span>
@@ -233,6 +283,7 @@ def stock(request: Request, slug: str, msg: Optional[str] = None, ok: int = 0):
 {views.flash(msg, bool(ok))}
 {views.trade_panel(slug, row['price'], user, pos, auth.csrf_token(request), settle)}
 <h2>Price history</h2>
+<nav class="spans">{spans}</nav>
 {chart}
 <h2>Why it moved</h2>
 <p class="muted" id="reasons-help">Every scoring event behind today's price,

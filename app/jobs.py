@@ -28,7 +28,7 @@ def main(argv: list[str] | None = None) -> int:
         "seed", help="fill price history on a fresh database (run once after deploy)")
     seed.add_argument("--snapshot", default=str(SNAPSHOT))
     seed.add_argument("--db", default=str(DB_PATH))
-    seed.add_argument("--months", type=int, default=60)
+    seed.add_argument("--months", type=int, default=120)
     seed.add_argument("--every", type=int, default=14,
                       help="days between seeded price points (default fortnightly)")
     seed.add_argument("--force", action="store_true",

@@ -158,6 +158,14 @@ def sparkline(points: list[Point], w: int = 104, h: int = 26) -> str:
 # ------------------------------------------------------------------ page shell
 # Inline and in the head, because a theme applied after first paint is a white
 # flash on every navigation for anyone who chose dark.
+# Alternate Gothic in all but name. Two weights only - the look is one face at
+# two weights against a plain body face, not a font collection.
+FONT_LINK = (
+    '<link rel="preconnect" href="https://fonts.googleapis.com">'
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+    '<link rel="stylesheet" '
+    'href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600&display=swap">')
+
 THEME_BOOT = """<script>
 try {
   var t = localStorage.getItem('fsx-theme');
@@ -178,7 +186,7 @@ def shell(title: str, body: str, built: str, depth: int = 0) -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{esc(title)}</title>
 <link rel="stylesheet" href="{up}style.css">
-{THEME_BOOT}
+{FONT_LINK}{THEME_BOOT}
 </head>
 <body>
 <header class="site">
@@ -374,27 +382,40 @@ Budgets and grosses from Wikipedia.</p>
 STYLE = """
 :root {
   color-scheme: light;
-  --surface: #fcfcfb;
-  --raised: #ffffff;
-  --ink: #0b0b0b;
-  --ink-2: #52514e;
-  --muted: #8a8880;
-  --rule: #e6e4de;
-  --series: #2a78d6;
-  --up: #008300;
-  --down: #c5302f;
+  /* One-sheet stock, not paper-white: the whole look sits on a warm ground. */
+  --surface: #f2ece0;
+  --raised: #fbf7ef;
+  --ink: #17130e;
+  --ink-2: #4a423a;
+  --muted: #857b6d;
+  --rule: #d5c9b3;
+  --rule-hard: #17130e;
+  --red: #b3242b;
+  --gold: #c98a12;
+  --series: #1c4f73;
+  /* Validated against this surface: deutan dE 9.4, and every figure carries a
+     sign, so the pair is never read on colour alone. A leafier green scored
+     5.2 and was thrown out. */
+  --up: #0f6b57;
+  --down: #b3242b;
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  /* Alternate Gothic is the lettering on every poster in the reference. Oswald
+     is its closest free relative; the fallbacks are the condensed faces most
+     likely to be sitting on the machine already. */
+  --poster: "Oswald", "Haettenschweiler", "Arial Narrow", "Helvetica Neue",
+            "Liberation Sans Narrow", "DejaVu Sans Condensed", Impact, var(--sans);
 }
 /* Dark is a choice, not a consequence of the operating system. This used to be
    a prefers-color-scheme block, so anyone whose Mac was in dark mode got a
    theme nobody had designed and never saw the one we had. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --surface: #17171a; --raised: #1e1e21; --ink: #f4f3ef; --ink-2: #c3c2b7;
-  --muted: #8d8c86; --rule: #2e2e32; --series: #3987e5;
-  --up: #4caf50; --down: #e66767;
+  --surface: #191510; --raised: #221d17; --ink: #f4eee2; --ink-2: #c9bfae;
+  --muted: #8f8676; --rule: #3a3227; --rule-hard: #6b6051;
+  --red: #e0584f; --gold: #e0a63a; --series: #6fb0e0;
+  --up: #4cc7b4; --down: #f0705f;
 }
 * { box-sizing: border-box; }
 body {
@@ -404,23 +425,110 @@ body {
 }
 main { max-width: 1040px; margin: 0 auto; padding: 0 24px 72px; }
 a { color: inherit; }
-h1, h2, h3 { font-family: var(--serif); font-weight: 600; letter-spacing: -0.01em; }
-h1 { font-size: 2.6rem; line-height: 1.1; margin: 0 0 .4rem; }
-h2 { font-size: 1.3rem; margin: 2.4rem 0 .6rem; }
+h1, h2, h3 { font-family: var(--poster); font-weight: 600; text-transform: uppercase;
+  letter-spacing: .01em; line-height: 1.02;
+  /* If Oswald has not loaded, let the browser reach for a condensed cut of
+     whatever it does have rather than setting the poster in plain Helvetica. */
+  font-stretch: 85%; }
+h1 { font-size: 3.1rem; margin: 0 0 .4rem; }
+h2 { font-size: 1.45rem; margin: 2.6rem 0 .7rem; padding-bottom: 5px;
+  border-bottom: 2px solid var(--rule-hard); }
+h3 { font-size: 1.05rem; margin: 0 0 2px; }
 .muted { color: var(--muted); }
 .lede { font-size: 1.15rem; color: var(--ink-2); max-width: 62ch; margin: 0; }
 
 header.site {
   display: flex; justify-content: space-between; align-items: baseline;
+  flex-wrap: wrap; gap: 10px 18px;
   max-width: 1040px; margin: 0 auto; padding: 28px 24px 20px;
   border-bottom: 1px solid var(--rule);
 }
-.wordmark { font-family: var(--serif); font-size: 1.15rem; text-decoration: none; }
+.wordmark { font-family: var(--poster); font-size: 1.3rem; text-transform: uppercase;
+  letter-spacing: .06em; text-decoration: none; font-weight: 600; }
 header.site nav a { color: var(--ink-2); text-decoration: none; font-size: .92rem; }
 header.site nav a:hover { color: var(--ink); }
 .hero { padding: 48px 0 8px; }
 .crumb { padding: 22px 0 6px; font-size: .9rem; }
 .crumb a { color: var(--ink-2); text-decoration: none; }
+
+/* ------------------------------------------------------------- the poster */
+.masthead { padding: 34px 0 0; text-align: center; }
+.masthead .over { font-family: var(--poster); font-size: .82rem; letter-spacing: .34em;
+  text-transform: uppercase; color: var(--red); margin: 0 0 6px; }
+.masthead h1 { font-size: clamp(2.2rem, 6.4vw, 4.2rem); letter-spacing: .005em;
+  margin: 0; text-wrap: balance; }
+.masthead .rule { border: 0; border-top: 3px solid var(--rule-hard);
+  border-bottom: 1px solid var(--rule-hard); height: 4px; margin: 12px 0 10px; }
+.masthead .billing { font-family: var(--poster); text-transform: uppercase;
+  letter-spacing: .13em; font-size: .78rem; color: var(--ink-2);
+  display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 18px; }
+.masthead .billing b { font-weight: 600; color: var(--ink); }
+
+.starring { margin: 30px 0 6px; }
+.starring .over { font-family: var(--poster); text-transform: uppercase;
+  letter-spacing: .3em; font-size: .74rem; color: var(--muted);
+  text-align: center; margin: 0 0 10px; }
+.billboard { display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.sheet { border: 2px solid var(--rule-hard); background: var(--raised);
+  padding: 16px 16px 12px; text-decoration: none; display: block;
+  position: relative; }
+.sheet:hover { background: var(--surface); }
+.sheet .slot { font-family: var(--poster); font-size: .7rem; letter-spacing: .22em;
+  text-transform: uppercase; color: var(--red); }
+.sheet .who { font-family: var(--poster); text-transform: uppercase;
+  font-size: clamp(1.3rem, 2.5vw, 1.75rem); line-height: 1.02; margin: 4px 0 8px; }
+.sheet .figure { display: flex; align-items: baseline; gap: 9px; }
+.sheet .figure b { font-family: var(--mono); font-size: 1.5rem; font-weight: 500; }
+.sheet .spark { width: 100%; height: 34px; margin-top: 8px; opacity: .9; }
+
+.quotes { display: grid; gap: 16px; margin: 26px 0 8px;
+  grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); }
+.quote-card { border: 1px solid var(--rule-hard); background: var(--raised);
+  padding: 0 0 6px; }
+.quote-card h3 { font-family: var(--poster); background: var(--rule-hard);
+  color: var(--surface); padding: 6px 12px; letter-spacing: .1em;
+  font-size: .86rem; margin: 0; }
+.quote-card .note { font-family: var(--serif); font-style: italic;
+  font-size: .84rem; color: var(--muted); padding: 8px 12px 2px; margin: 0; }
+.quote-card ol { margin: 0; padding: 0 12px 4px; list-style: none; }
+.quote-card li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px;
+  align-items: baseline; padding: 6px 0; border-top: 1px solid var(--rule);
+  font-size: .93rem; }
+.quote-card li:first-child { border-top: 0; }
+.quote-card li a { color: var(--ink); text-decoration: none; }
+.quote-card li a:hover { text-decoration: underline; }
+.quote-card .mono { font-family: var(--mono); font-size: .85rem; color: var(--muted); }
+
+.creditblock { border-top: 2px solid var(--rule-hard); margin-top: 40px;
+  padding-top: 14px; text-align: center; font-family: var(--poster);
+  text-transform: uppercase; letter-spacing: .12em; font-size: .7rem;
+  color: var(--ink-2); line-height: 2; }
+.creditblock b { color: var(--ink); font-weight: 600; }
+
+/* ------------------------------------------------------------ small screens
+   The board is seven columns wide and the header is a single row, which put
+   624px of page in a 390px phone and left the whole thing scrolled sideways.
+   Below this width the table drops what it can spare and scrolls what it
+   cannot. */
+@media (max-width: 720px) {
+  main { padding: 0 16px 56px; }
+  header.site { padding: 20px 16px 14px; }
+  header.site nav { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  .masthead { padding: 22px 0 0; }
+  .masthead .billing { gap: 2px 12px; font-size: .72rem; }
+  .market .sparkcell, .market thead th:last-child,
+  .market .tier, .market thead th:nth-child(5) { display: none; }
+  .filter input { width: 100%; }
+  .filter .count { margin-left: 0; }
+  h1 { font-size: 2.1rem; }
+  .big { font-size: 2rem; }
+  .spans { flex-wrap: wrap; }
+  .spans a { border-left-width: 1px; }
+}
+/* Anything that still cannot fit scrolls on its own rather than taking the
+   page with it. */
+.tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
   background: var(--rule); border: 1px solid var(--rule); margin: 32px 0 8px; }
@@ -431,9 +539,9 @@ header.site nav a:hover { color: var(--ink); }
 .stat-sub { font-size: .82rem; color: var(--muted); }
 
 table { width: 100%; border-collapse: collapse; }
-th { text-align: left; font-size: .74rem; text-transform: uppercase;
-  letter-spacing: .07em; color: var(--muted); font-weight: 600;
-  padding: 10px 10px; border-bottom: 1px solid var(--rule); }
+th { text-align: left; font-family: var(--poster); font-size: .76rem;
+  text-transform: uppercase; letter-spacing: .12em; color: var(--ink-2);
+  font-weight: 600; padding: 9px 10px; border-bottom: 2px solid var(--rule-hard); }
 td { padding: 9px 10px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
 tbody tr:hover { background: var(--raised); }
 .num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
@@ -441,6 +549,7 @@ tbody tr:hover { background: var(--raised); }
 .market .name a { text-decoration: none; }
 .market .name a:hover { text-decoration: underline; }
 .market .price { font-size: 1.02rem; }
+.market .name a { font-weight: 500; }
 .sparkcell { width: 120px; }
 .spark { width: 104px; height: 26px; }
 .spark path { fill: none; stroke: var(--series); stroke-width: 1.5;
@@ -451,14 +560,25 @@ tbody tr:hover { background: var(--raised); }
 .badge { font-size: .64rem; text-transform: uppercase; letter-spacing: .08em;
   border: 1px solid var(--rule); padding: 1px 5px; color: var(--muted);
   vertical-align: middle; }
-.pill { font-size: .74rem; padding: 2px 9px; border: 1px solid var(--rule);
-  border-radius: 999px; color: var(--ink-2); white-space: nowrap; }
-.pill.tlegend, .pill.talist { border-color: currentColor; color: var(--ink); }
+.pill { font-family: var(--poster); font-size: .7rem; text-transform: uppercase;
+  letter-spacing: .1em; padding: 2px 8px; border: 1px solid var(--rule);
+  color: var(--ink-2); white-space: nowrap; }
+.pill.tlegend, .pill.talist { border-color: var(--red); color: var(--red); }
+.badge { font-family: var(--poster); }
 
 .stockhead { padding: 6px 0 4px; }
 .quote { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
   margin-top: 8px; }
 .big { font-family: var(--mono); font-size: 2.6rem; font-variant-numeric: tabular-nums; }
+.stockhead h1 { font-size: clamp(2.2rem, 5.6vw, 3.4rem); }
+.stockhead .over { font-family: var(--poster); font-size: .72rem; letter-spacing: .28em;
+  text-transform: uppercase; color: var(--red); margin: 0 0 2px; }
+.spans { display: flex; gap: 0; margin: 10px 0 0; }
+.spans a { font-family: var(--poster); text-transform: uppercase; letter-spacing: .1em;
+  font-size: .74rem; padding: 5px 12px; border: 1px solid var(--rule-hard);
+  border-left-width: 0; color: var(--ink-2); text-decoration: none; }
+.spans a:first-child { border-left-width: 1px; }
+.spans a.on { background: var(--rule-hard); color: var(--surface); }
 .unit { color: var(--muted); margin-left: -12px; }
 .chg { font-family: var(--mono); font-size: 1rem; }
 .chg small { color: var(--muted); font-size: .72rem; margin-left: 2px; }

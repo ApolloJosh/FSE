@@ -7,8 +7,8 @@ import sqlite3
 from datetime import date, datetime
 
 from fsx.history import Point
-from fsx.site import (STYLE, THEME_BOOT, THEME_BUTTON, esc, line_chart, money,
-                      pct, shell as static_shell, sparkline, trend_class)
+from fsx.site import (FONT_LINK, STYLE, THEME_BOOT, THEME_BUTTON, esc, line_chart,
+                      money, pct, shell as static_shell, sparkline, trend_class)
 
 from . import db
 
@@ -149,7 +149,7 @@ def chrome(title: str, body: str, user: sqlite3.Row | None, depth: int = 0) -> s
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{esc(title)}</title><link rel="stylesheet" href="{up}static/style.css">
-{THEME_BOOT}
+{FONT_LINK}{THEME_BOOT}
 </head><body>
 <header class="site">
   <a class="wordmark" href="{up}">Film Stock Exchange</a>
@@ -176,9 +176,9 @@ def points_from(rows: list[sqlite3.Row]) -> list[Point]:
 
 
 def movers_panel(boards: list[tuple[str, str, list[dict]]]) -> str:
-    """Three short lists above the table. 247 rows sorted by price answers
-    "who is expensive", which is the least interesting question the data can
-    answer."""
+    """Three short lists above the table, set like the review quotes on a
+    one-sheet. 312 rows sorted by price answers "who is expensive", which is
+    the least interesting question the data can answer."""
     cards = ""
     for title, blurb, entries in boards:
         if not entries:
@@ -188,13 +188,60 @@ def movers_panel(boards: list[tuple[str, str, list[dict]]]) -> str:
   <span class="mono">{money(e['price'])}</span>
   <span class="{trend_class(e['change'])}">{pct(e['change'])}</span>
 </li>""" for e in entries)
-        cards += (f'<section class="board"><h3>{esc(title)}</h3>'
-                  f'<p class="muted">{esc(blurb)}</p><ol>{items}</ol></section>')
-    return f'<div class="boards-grid">{cards}</div>' if cards else ""
+        cards += (f'<section class="quote-card"><h3>{esc(title)}</h3>'
+                  f'<p class="note">{esc(blurb)}</p><ol>{items}</ol></section>')
+    return f'<div class="quotes">{cards}</div>' if cards else ""
+
+
+def masthead(listed: int, market_value: float, as_of: str) -> str:
+    """The top of a one-sheet: over-line, title, rule, billing."""
+    return f"""<section class="masthead">
+  <p class="over">Prices derived from released work alone</p>
+  <h1>The Film Stock Exchange</h1>
+  <hr class="rule">
+  <p class="billing">
+    <span><b>{listed}</b> listed</span>
+    <span><b>CR {money(market_value)}</b> on the board</span>
+    <span>Trading as of <b>{esc(as_of)}</b></span>
+  </p>
+</section>"""
+
+
+def billboard(rows: list[dict]) -> str:
+    """Top billing. The most expensive names are the one thing a poster would
+    set largest, so they are set largest."""
+    cards = ""
+    for slot, row in zip(("Starring", "And", "With"), rows):
+        cards += f"""<a class="sheet" href="stock/{esc(row['slug'])}">
+  <span class="slot">{slot}</span>
+  <div class="who">{esc(row['name'])}</div>
+  <div class="figure"><b>{money(row['price'])}</b>
+    <span class="{trend_class(row['change'])}">{pct(row['change'])}</span>
+    <span class="pill">{esc(row['tier'])}</span></div>
+  {row['spark']}
+</a>"""
+    return ('<section class="starring"><p class="over">Top billing</p>'
+            f'<div class="billboard">{cards}</div></section>')
+
+
+def credit_block(rows: list[dict], tiers: dict[str, int]) -> str:
+    """The dense little type at the foot of a poster, which is where a poster
+    puts what is true but not the point."""
+    order = ["Legend", "A-List", "Established", "Recognized", "Working", "Debut"]
+    listed = " · ".join(f"<b>{tiers[t]}</b> {esc(t.lower())}"
+                        for t in order if tiers.get(t))
+    directors = sum(1 for r in rows if r["is_director"])
+    return f"""<section class="creditblock">
+  <div>{listed}</div>
+  <div><b>{len(rows) - directors}</b> in front of the camera ·
+       <b>{directors}</b> behind it</div>
+  <div>Film and credit data TMDB · Reviews OMDb and Wikidata ·
+       Awards Wikidata · Budgets and grosses Wikipedia</div>
+</section>"""
 
 
 def market_page(rows: list[dict], user: sqlite3.Row | None, note: str = "",
-                movers: str = "") -> str:
+                movers: str = "", as_of: str = "") -> str:
     body_rows = "".join(f"""<tr data-name="{esc(r['name'].lower())}" data-tier="{esc(r['tier'])}">
   <td class="rank">{i}</td>
   <td class="name"><a href="stock/{esc(r['slug'])}">{esc(r['name'])}</a>
@@ -206,22 +253,13 @@ def market_page(rows: list[dict], user: sqlite3.Row | None, note: str = "",
   <td class="sparkcell">{r['spark']}</td>
 </tr>""" for i, r in enumerate(rows, 1))
 
-    tiers = []
+    tiers: dict[str, int] = {}
     for r in rows:
-        if r["tier"] not in tiers:
-            tiers.append(r["tier"])
+        tiers[r["tier"]] = tiers.get(r["tier"], 0) + 1
     options = "".join(f'<option value="{esc(t)}">{esc(t)}</option>' for t in tiers)
 
-    return chrome("The market — Film Stock Exchange", f"""
-<section class="hero">
-  <h1>The market</h1>
-  <p class="lede">Every price is derived from real results — awards, box office
-  and critical reception — and nothing else. Buy in before the rest of the
-  market notices.</p>
-</section>
-{note}
-{movers}
-<h2>Every listing</h2>
+    board = f"""
+<h2>The whole board</h2>
 <div class="filter">
   <input id="q" type="search" placeholder="Find a name" autocomplete="off"
          aria-label="Filter by name">
@@ -230,36 +268,43 @@ def market_page(rows: list[dict], user: sqlite3.Row | None, note: str = "",
   </select>
   <span class="count" id="count">{len(rows)} listed</span>
 </div>
-<table class="market">
+<div class="tablewrap"><table class="market">
   <thead><tr><th class="rank">#</th><th>Name</th><th class="num">Price</th>
   <th class="num">30 days</th><th>Tier</th><th class="num">Held</th>
   <th>History</th></tr></thead>
   <tbody id="rows">{body_rows}</tbody>
-</table>
-<p class="empty" id="none" hidden>Nobody by that name is listed.</p>
+</table></div>
+<p class="empty" id="none" hidden>Nobody by that name is listed.</p>"""
+
+    script = """
 <script>
-// 247 rows and no way through them is a list, not a market. Filtering client
+// 312 rows and no way through them is a list, not a market. Filtering client
 // side keeps it instant and keeps the page cacheable.
-(function () {{
+(function () {
   var q = document.getElementById('q'), tier = document.getElementById('tier');
   var rows = [].slice.call(document.querySelectorAll('#rows tr'));
   var count = document.getElementById('count'), none = document.getElementById('none');
-  function apply() {{
+  function apply() {
     var needle = q.value.trim().toLowerCase(), want = tier.value, shown = 0;
-    rows.forEach(function (row) {{
+    rows.forEach(function (row) {
       var name = row.getAttribute('data-name') || '';
       var ok = (!needle || name.indexOf(needle) > -1)
             && (!want || row.getAttribute('data-tier') === want);
       row.classList.toggle('hidden', !ok);
       if (ok) shown++;
-    }});
-    count.textContent = shown + (shown === 1 ? ' listed' : ' listed');
+    });
+    count.textContent = shown + ' listed';
     none.hidden = shown > 0;
-  }}
+  }
   q.addEventListener('input', apply);
   tier.addEventListener('change', apply);
-}})();
-</script>""", user)
+})();
+</script>"""
+
+    return chrome("The market — Film Stock Exchange",
+                  masthead(len(rows), sum(r["price"] for r in rows), as_of)
+                  + note + billboard(rows[:3]) + movers + board
+                  + credit_block(rows, tiers) + script, user)
 
 
 def trade_panel(slug: str, price: int, user: sqlite3.Row | None,

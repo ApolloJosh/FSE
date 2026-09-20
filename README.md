@@ -361,6 +361,24 @@ The modifier ramps rather than steps, so nothing hinges on a film scoring 39
 instead of 41, and a film with no reviews on file is judged neither way.
 
 
+## The look
+
+One-sheet posters of the 1950s: warm stock rather than paper white, condensed
+caps for anything that acts as a title, heavy rules, the market's three most
+expensive names set as top billing, the movers set like the review quotes on a
+poster, and a credit block at the foot for what is true but not the point.
+
+The display face is **Oswald**, the closest free relative of the Alternate
+Gothic those posters were lettered in, loaded from Google Fonts. It degrades to
+whatever condensed cut the machine has, with `font-stretch` so the browser will
+reach for one. To drop the dependency, self-host the two weights and point an
+`@font-face` at them — nothing else changes.
+
+Chart colours are validated, not chosen by eye: `--up` and `--down` separate by
+ΔE 9.4 under deuteranopia against this surface (the leafier green they replaced
+scored 5.2), and every figure carries a sign, so the pair is never read on
+colour alone.
+
 ## The theme
 
 White, always, unless the person says otherwise. This was a

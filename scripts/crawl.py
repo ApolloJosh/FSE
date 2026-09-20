@@ -11,10 +11,19 @@ from app.main import app
 
 def crawl(client, label):
     seen, queue, bad, pages = set(), [("/", "(start)")], [], 0
+    # Every stock page carries the same four ?span= links, so following all of
+    # them is 312 pages turning into 1,248 that differ in nothing. Check a
+    # sample of the query variants and every distinct path.
+    QUERY_BUDGET = 40
+    queries = 0
     while queue:
         url, came_from = queue.pop(0)
         if url in seen or url.startswith("/signout"):
             continue
+        if "?" in url:
+            if queries >= QUERY_BUDGET:
+                continue
+            queries += 1
         seen.add(url)
         r = client.get(url)
         # Resolve against where we landed: a redirect moves the base, and
