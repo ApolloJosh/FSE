@@ -242,10 +242,24 @@ def stock(request: Request, slug: str, msg: Optional[str] = None, ok: int = 0,
     except Exception:                                  # noqa: BLE001
         events = []
 
+    # Anchored to the chart: without it the reload lands at the top of the page
+    # and the range looks unchanged because you are no longer looking at it.
     spans = "".join(
         f'<a class="{"on" if key == span else ""}" '
-        f'href="?span={key}">{esc(name)}</a>'
+        f'href="?span={key}#history">{esc(name)}</a>'
         for key, (name, _) in SPANS.items())
+
+    # And say what got drawn. The y-axis refits every time, so a one-year slice
+    # and a ten-year one can be the same shape on the screen - the dates are
+    # the only thing that tells you the button did anything.
+    if points:
+        drawn = (f'{points[0].on.strftime("%b %Y")} – '
+                 f'{points[-1].on.strftime("%b %Y")} · '
+                 f'{len(points)} point{"" if len(points) == 1 else "s"}')
+        if span != "all" and len(points) == len(everything):
+            drawn += " · that is everything on file"
+    else:
+        drawn = "No price history yet."
 
     from fsx.site import line_chart
     marks = [(ident, c.event_date, f"{c.title} — {c.kind} {v:+,.0f}")
@@ -282,9 +296,10 @@ def stock(request: Request, slug: str, msg: Optional[str] = None, ok: int = 0,
 </header>
 {views.flash(msg, bool(ok))}
 {views.trade_panel(slug, row['price'], user, pos, auth.csrf_token(request), settle)}
-<h2>Price history</h2>
+<h2 id="history">Price history</h2>
 <nav class="spans">{spans}</nav>
 {chart}
+<p class="drawn">{drawn}</p>
 <h2>Why it moved</h2>
 <p class="muted" id="reasons-help">Every scoring event behind today's price,
 after decay. Click a row to find it on the chart; click a heading to sort.</p>

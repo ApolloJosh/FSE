@@ -579,6 +579,8 @@ tbody tr:hover { background: var(--raised); }
   border-left-width: 0; color: var(--ink-2); text-decoration: none; }
 .spans a:first-child { border-left-width: 1px; }
 .spans a.on { background: var(--rule-hard); color: var(--surface); }
+.drawn { margin: 8px 0 0; font-family: var(--mono); font-size: .8rem;
+  color: var(--muted); }
 .unit { color: var(--muted); margin-left: -12px; }
 .chg { font-family: var(--mono); font-size: 1rem; }
 .chg small { color: var(--muted); font-size: .72rem; margin-left: 2px; }

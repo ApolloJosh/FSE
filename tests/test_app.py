@@ -554,3 +554,30 @@ def test_a_name_that_shares_no_film_is_a_miss_not_a_link(client):
     from datetime import date as _date
     state = play.state_of(play.get(conn, user_id, "six-degrees", _date.today()))
     assert state["misses"] == 1 and len(state.get("chain", [])) == 1
+
+
+def test_the_price_history_span_actually_changes_the_chart(client):
+    """The buttons looked broken: the reload lands at the top of the page, and
+    the y-axis refits, so a one-year slice and a ten-year one can be the same
+    shape on screen."""
+    import re
+
+    c, conn = client
+    seen = {}
+    for span in ("1y", "5y", "10y", "all"):
+        page = c.get(f"/stock/mid?span={span}").text
+        drawn = re.search(r'class="drawn">([^<]+)<', page)
+        assert drawn, f"{span} does not say what it drew"
+        seen[span] = drawn.group(1)
+        assert f'class="on" href="?span={span}#history"' in page, (
+            f"{span} is not marked as the one showing")
+    # 1y must not be showing the same window as the full history, given the
+    # fixture has more than a year of prices.
+    assert seen["1y"] != seen["all"] or "1 point" in seen["all"]
+
+
+def test_the_span_links_return_you_to_the_chart(client):
+    c, _ = client
+    page = c.get("/stock/mid").text
+    assert 'id="history"' in page
+    assert page.count("#history") >= 4
