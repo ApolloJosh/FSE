@@ -7,8 +7,8 @@ import sqlite3
 from datetime import date, datetime
 
 from fsx.history import Point
-from fsx.site import (STYLE, esc, line_chart, money, pct, shell as static_shell,
-                      sparkline, trend_class)
+from fsx.site import (STYLE, THEME_BOOT, THEME_BUTTON, esc, line_chart, money,
+                      pct, shell as static_shell, sparkline, trend_class)
 
 from . import db
 
@@ -80,17 +80,20 @@ def chrome(title: str, body: str, user: sqlite3.Row | None, depth: int = 0) -> s
                  f'<a href="{up}portfolio">Portfolio</a>'
                  f'<a href="{up}leaderboards">Leaderboards</a>'
                  f'<a href="{up}about">How prices work</a>'
-                 f'<a href="{up}signout">Sign out</a>')
+                 f'<a href="{up}signout">Sign out</a>'
+                 f'{THEME_BUTTON}')
     else:
         right = (f'{market}'
                  f'<a href="{up}leaderboards">Leaderboards</a>'
                  f'<a href="{up}about">How prices work</a>'
-                 f'<a href="{up}signin">Sign in</a>')
+                 f'<a href="{up}signin">Sign in</a>'
+                 f'{THEME_BUTTON}')
 
     return f"""<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{esc(title)}</title><link rel="stylesheet" href="{up}static/style.css">
+{THEME_BOOT}
 </head><body>
 <header class="site">
   <a class="wordmark" href="{up}">Film Stock Exchange</a>

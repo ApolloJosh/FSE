@@ -355,6 +355,18 @@ The modifier ramps rather than steps, so nothing hinges on a film scoring 39
 instead of 41, and a film with no reviews on file is judged neither way.
 
 
+## The theme
+
+White, always, unless the person says otherwise. This was a
+`prefers-color-scheme` block, which meant anyone whose machine was in dark mode
+got a theme nobody had designed and never saw the one we had — and, because
+headless browsers render light, nobody testing ever noticed.
+
+Dark is now opt-in: a control in the nav sets `data-theme="dark"` on the root
+and remembers it in `localStorage`. An inline script in the `<head>` applies it
+before first paint, because a theme applied afterwards is a white flash on
+every navigation.
+
 ## Not every credit is a performance
 
 A fifth of the corpus is not: documentary interviews, making-of featurettes,

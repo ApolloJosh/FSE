@@ -173,3 +173,24 @@ def test_every_credit_field_survives_a_round_trip(tmp_path):
     save([Person(name="X", credits=[credit])], path)
     back = load(path)[0][0].credits[0]
     assert back.appearance == "narration" and back.is_voice and back.budget == 1e6
+
+
+def test_the_operating_system_does_not_pick_the_theme():
+    """A prefers-color-scheme block meant anyone whose Mac was in dark mode got
+    a theme nobody had designed, and never saw the one we had."""
+    from fsx.site import STYLE
+
+    css = STYLE.split("*/")[-1]      # past the comment that explains this
+    assert "prefers-color-scheme" not in css
+    assert ':root[data-theme="dark"]' in STYLE
+
+
+def test_the_theme_is_applied_before_the_page_paints():
+    """Applied after first paint it is a white flash on every navigation for
+    anyone who chose dark."""
+    from fsx.site import THEME_BOOT, shell
+
+    page = shell("T", "<p>body</p>", "2026-01-01")
+    head = page[:page.index("</head>")]
+    assert THEME_BOOT in head
+    assert "fsx-theme" in head

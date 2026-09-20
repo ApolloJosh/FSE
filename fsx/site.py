@@ -156,6 +156,19 @@ def sparkline(points: list[Point], w: int = 104, h: int = 26) -> str:
 
 
 # ------------------------------------------------------------------ page shell
+# Inline and in the head, because a theme applied after first paint is a white
+# flash on every navigation for anyone who chose dark.
+THEME_BOOT = """<script>
+try {
+  var t = localStorage.getItem('fsx-theme');
+  if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+} catch (e) {}
+</script>"""
+
+THEME_BUTTON = ('<button class="theme" id="theme" type="button" '
+                'aria-label="Switch between the light and dark theme">Dark</button>')
+
+
 def shell(title: str, body: str, built: str, depth: int = 0) -> str:
     up = "../" * depth
     return f"""<!doctype html>
@@ -165,11 +178,12 @@ def shell(title: str, body: str, built: str, depth: int = 0) -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{esc(title)}</title>
 <link rel="stylesheet" href="{up}style.css">
+{THEME_BOOT}
 </head>
 <body>
 <header class="site">
   <a class="wordmark" href="{up}index.html">Film Stock Exchange</a>
-  <nav><a href="{up}about.html">How prices work</a></nav>
+  <nav><a href="{up}about.html">How prices work</a> {THEME_BUTTON}</nav>
 </header>
 <main>{body}</main>
 <footer>
@@ -373,13 +387,14 @@ STYLE = """
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --surface: #17171a; --raised: #1e1e21; --ink: #f4f3ef; --ink-2: #c3c2b7;
-    --muted: #8d8c86; --rule: #2e2e32; --series: #3987e5;
-    --up: #4caf50; --down: #e66767;
-  }
+/* Dark is a choice, not a consequence of the operating system. This used to be
+   a prefers-color-scheme block, so anyone whose Mac was in dark mode got a
+   theme nobody had designed and never saw the one we had. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #17171a; --raised: #1e1e21; --ink: #f4f3ef; --ink-2: #c3c2b7;
+  --muted: #8d8c86; --rule: #2e2e32; --series: #3987e5;
+  --up: #4caf50; --down: #e66767;
 }
 * { box-sizing: border-box; }
 body {
@@ -459,6 +474,10 @@ tbody tr:hover { background: var(--raised); }
 .dot, .hoverdot { fill: var(--series); stroke: var(--surface); stroke-width: 2; }
 .endlabel { fill: var(--ink); font-family: var(--mono); font-size: 12px; }
 .crosshair { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.theme { background: none; border: 1px solid var(--rule); color: var(--ink-2);
+  font: inherit; font-size: .82rem; line-height: 1; padding: 6px 9px;
+  border-radius: 2px; cursor: pointer; }
+.theme:hover { color: var(--ink); border-color: var(--muted); }
 .evt line { stroke: var(--rule); stroke-width: 1; }
 .evt circle { fill: var(--rule); }
 .evt.on line { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 2 3; }
@@ -502,6 +521,28 @@ footer p { margin: 0 0 6px; }
 """
 
 CHART_JS = """
+// The theme control. Light is the default and the operating system does not
+// get a vote - see the data-theme block in the stylesheet.
+(function () {
+  var button = document.getElementById('theme');
+  if (!button) return;
+  function label() {
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    button.textContent = dark ? 'Light' : 'Dark';
+  }
+  label();
+  button.addEventListener('click', function () {
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (dark) {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+    try { localStorage.setItem('fsx-theme', dark ? 'light' : 'dark'); } catch (e) {}
+    label();
+  });
+})();
+
 // Crosshair + tooltip on the price chart. An HTML chart is interactive by
 // default; a line you cannot read a value off is a picture, not a chart.
 document.querySelectorAll('.chart').forEach(function (fig) {
