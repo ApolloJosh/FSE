@@ -671,3 +671,87 @@ def test_the_key_quotes_the_real_curve():
     text = key_block()
     assert f"{K.PRICE_COEF} × CP" in text and f"{K.PRICE_EXP}" in text
     assert f"{price_from_cp(1300):,.2f}" in text
+
+
+def test_all_means_the_whole_career_not_the_seeded_window(client, monkeypatch):
+    """The seed reaches back ten years for everybody, so "All" and "10 years"
+    drew the identical chart for a career that started in 1959."""
+    from datetime import date, timedelta
+
+    from app import main
+    from fsx.history import Point
+
+    recorded = [Point(date(2016, 11, 13) + timedelta(days=14 * i), 100.0 + i)
+                for i in range(200)]
+
+    class FakeCredit:
+        release_date = date(1968, 6, 1)
+
+    class FakePerson:
+        name = "Old Hand"
+        credits = [FakeCredit()]
+        awards = []
+
+    monkeypatch.setattr(
+        "fsx.history.value_person",
+        lambda person, on: type("V", (), {"price": 10.0})())
+
+    main._CAREER_CACHE.clear()
+    out = main.career_series("old-hand", FakePerson(), recorded)
+    assert out[0].on.year == 1968, out[0]
+    assert out[-1] == recorded[-1]
+    assert len(out) > len(recorded)
+    assert out == sorted(out, key=lambda p: p.on)
+
+
+def test_all_starts_at_the_first_credit_for_a_newcomer(client):
+    """Someone whose first film is last year should not get a flat decade of
+    floor price in front of it."""
+    from datetime import date, timedelta
+
+    from app import main
+    from fsx.history import Point
+
+    recorded = [Point(date(2016, 11, 13) + timedelta(days=14 * i), 3.0)
+                for i in range(240)]
+    cut = recorded[-10].on
+
+    class FakeCredit:
+        release_date = cut
+
+    class FakePerson:
+        name = "New Face"
+        credits = [FakeCredit()]
+        awards = []
+
+    out = main.career_series("new-face", FakePerson(), recorded)
+    assert out[0].on >= cut
+    assert len(out) == 10
+
+
+def test_the_nightly_job_closes_a_gap_it_finds(client, tmp_path):
+    """The deployed market sat at July 2022 for months: the one-off seed died
+    partway and nothing afterwards noticed the newest price was four years
+    old. The nightly run now fills its own gap before it marks."""
+    import json
+    from datetime import date, timedelta
+
+    from app import db, marking
+
+    c, conn = client
+    snapshot = tmp_path / "people.json"
+    snapshot.write_text(json.dumps({
+        "schema": 1, "fetched_on": "2026-01-01",
+        "people": [{"name": "Mid Career", "tmdb_id": 1, "is_director": False,
+                    "credits": [], "awards": []}]}))
+
+    stale = date.today() - timedelta(days=400)
+    db.record_prices(conn, stale, [
+        {"slug": "mid", "name": "Mid Career", "is_director": False,
+         "price": db.cents(20.00), "cp": 700.0, "tier": "Working"}])
+    conn.execute("DELETE FROM prices WHERE on_date > ?", (stale.isoformat(),))
+
+    filled = marking.catch_up(conn, snapshot, date.today())
+    assert filled > 20, f"only filled {filled} days of a 400-day hole"
+    newest = date.fromisoformat(db.latest_date(conn))
+    assert (date.today() - newest).days <= 14

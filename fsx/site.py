@@ -65,6 +65,9 @@ def _scale(points: list[Point]):
     floor_band = abs(mid) * MIN_BAND_FRACTION
     if hi - lo < floor_band:
         lo, hi = mid - floor_band / 2, mid + floor_band / 2
+    # A career chart starts at the price floor, and the 8% headroom below it
+    # put "-9" on the axis of a market where nothing can cost less than 2.50.
+    lo = max(lo, 0.0)
     days = (points[-1].on - points[0].on).days or 1
 
     def x(p: Point) -> float:
@@ -104,9 +107,20 @@ def line_chart(points: list[Point], label: str, events=None) -> str:
         if p.on.year not in seen:
             seen.add(p.on.year)
             years.append(p)
+    # A sixty-year career has sixty year labels, and at this width they run
+    # into each other and read as a grey smear. Thin them to what fits, on
+    # round years, so a long chart is labelled 1960, 1970, 1980 rather than
+    # 1959, 1964, 1969.
+    usable = CHART_W - PAD_L - PAD_R
+    room = max(1, int(usable // 58))
+    if len(years) > room:
+        for stride in (2, 5, 10, 20, 25, 50):
+            if len(years) // stride <= room:
+                break
+        years = [p for p in years if p.on.year % stride == 0] or years[::stride]
     xlabels = "".join(
         f'<text class="axis" x="{x(p):.1f}" y="{CHART_H - 8}" text-anchor="middle">'
-        f'{p.on.year}</text>' for p in years[1:])
+        f'{p.on.year}</text>' for p in years if x(p) > PAD_L + 6)
 
     last = points[-1]
     data = json.dumps([[p.on.isoformat(), round(p.price, 2)] for p in points])

@@ -11,6 +11,8 @@ import sys
 from datetime import date, datetime
 from pathlib import Path
 
+from fsx.store import load
+
 from . import db, marking
 from .main import DB_PATH, SNAPSHOT
 
@@ -33,6 +35,9 @@ def main(argv: list[str] | None = None) -> int:
                       help="days between seeded price points (default fortnightly)")
     seed.add_argument("--force", action="store_true",
                       help="re-seed a database that already has prices")
+    seed.add_argument("--resume", action="store_true",
+                      help="keep the days already priced and fill in the rest;"
+                           " safe to re-run after an interrupted seed")
 
     args = parser.parse_args(argv)
     on = datetime.strptime(getattr(args, "on", None), "%Y-%m-%d").date() \
@@ -50,9 +55,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "seed":
         # Prices are computed from a date, so a brand new database can be given
         # a real history immediately instead of waiting months to grow one.
-        if db.latest_date(conn) and not args.force:
+        if db.latest_date(conn) and not (args.force or args.resume):
             print("This database already has prices. Nothing to seed. "
-                  "Pass --force to rebuild them (positions are kept).")
+                  "Pass --resume to fill in the days it is missing, or "
+                  "--force to rebuild them all (positions are kept).")
             return 0
         if args.force:
             # Only the derived market: users, positions and trades survive, so
@@ -67,13 +73,25 @@ def main(argv: list[str] | None = None) -> int:
         # off whichever monthly point happened to be nearest.
         step = max(1, args.every)
         points = max(1, (args.months * 30) // step)
-        for i in range(points, -1, -1):
+        # Newest first. A seed that dies partway then leaves a market that is
+        # short of history rather than one whose latest price is from 2022 -
+        # which is what happened on the deployed volume, and every page read
+        # that four-year-old price as today's.
+        have = {r["on_date"] for r in conn.execute(
+            "SELECT DISTINCT on_date FROM prices")} if args.resume else set()
+        people, _ = load(snapshot)
+        done = 0
+        for i in range(0, points + 1):
             day = on - timedelta(days=step * i)
-            count = marking.refresh_prices(conn, snapshot, day)
-            if i % 10 == 0 or i == 0:
+            if day.isoformat() in have:
+                continue
+            count = marking.refresh_prices(conn, snapshot, day, people=people)
+            done += 1
+            if done % 10 == 1 or i == points:
                 print(f"  {day}  {count} stocks", flush=True)
-        print(f"Seeded {points + 1} prices per stock, "
+        print(f"Seeded {done} of {points + 1} days per stock, "
               f"every {step} days back to {on - timedelta(days=step * points)}.")
+        print(f"Newest price on file: {db.latest_date(conn)}.")
         return 0
 
     report = marking.run(conn, snapshot, on, with_dividends=args.dividends)

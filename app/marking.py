@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 from fsx import constants as K
@@ -38,13 +38,20 @@ class MarkReport:
     gains: int = 0
     losses: int = 0
     skipped: bool = False
+    filled: int = 0
 
 
 def refresh_prices(conn: sqlite3.Connection, snapshot: Path,
-                   on: date | None = None) -> int:
-    """Run the engine over the snapshot and store today's prices."""
+                   on: date | None = None, people=None) -> int:
+    """Run the engine over the snapshot and store today's prices.
+
+    `people` lets a caller that prices many days hand in the parsed roster.
+    The snapshot is eight megabytes of JSON and re-reading it once per day was
+    most of what made seeding ten years slow enough to get killed halfway.
+    """
     on = on or date.today()
-    people, _ = load(snapshot)
+    if people is None:
+        people, _ = load(snapshot)
     rows = []
     for person in people:
         valuation = value_person(person, on)
@@ -55,6 +62,41 @@ def refresh_prices(conn: sqlite3.Connection, snapshot: Path,
             "tier": valuation.tier,
         })
     return db.record_prices(conn, on, rows)
+
+
+def catch_up(conn: sqlite3.Connection, snapshot: Path, on: date | None = None,
+             step: int = 14, limit: int = 400) -> int:
+    """Fill the history between the newest price on file and today.
+
+    The deployed market sat four years behind for a while: the one-off seed was
+    interrupted partway, it writes oldest first, and nothing afterwards noticed
+    that the newest price was from 2022. Every page read that as the present.
+
+    So the nightly job now closes its own gap. Prices are a function of the
+    date, so the missing fortnights can simply be computed; nothing here marks
+    a position, because no player was holding anything on a day the market did
+    not exist.
+    """
+    on = on or date.today()
+    newest = db.latest_date(conn)
+    if not newest:
+        return 0
+    last = date.fromisoformat(newest)
+    if (on - last).days <= step:
+        return 0
+
+    days = []
+    cursor = last + timedelta(days=step)
+    while cursor < on:
+        days.append(cursor)
+        cursor += timedelta(days=step)
+    # A very long gap is filled coarsely rather than not at all.
+    while len(days) > limit:
+        days = days[1::2]
+    people, _ = load(snapshot)
+    for day in days:
+        refresh_prices(conn, snapshot, day, people=people)
+    return len(days)
 
 
 def mark_positions(conn: sqlite3.Connection, on: date | None = None) -> MarkReport:
@@ -160,8 +202,10 @@ def pay_dividends(conn: sqlite3.Connection, on: date | None = None) -> int:
 def run(conn: sqlite3.Connection, snapshot: Path, on: date | None = None,
         with_dividends: bool = False) -> MarkReport:
     on = on or date.today()
+    filled = catch_up(conn, snapshot, on)
     refresh_prices(conn, snapshot, on)
     report = mark_positions(conn, on)
+    report.filled = filled
     if with_dividends:
         pay_dividends(conn, on)
     return report

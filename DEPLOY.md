@@ -65,15 +65,27 @@ in it. Prices are computed from a date, so a new database can be given real
 history immediately rather than waiting months to grow one:
 
 ```bash
-fly ssh console -C "python -m app.jobs seed --months 24"
+fly ssh console -C "python -m app.jobs seed --resume"
 ```
 
-Then check it:
+Ten years, fortnightly, about two minutes for a roster of 500. It prices the
+newest day first and works backwards, and `--resume` keeps whatever is already
+there — so if the SSH session drops or the machine restarts partway, run the
+same command again and it picks up where it stopped.
+
+That ordering matters. The first version seeded oldest first with no resume,
+the run was interrupted, and the deployed market spent months quoting prices
+from July 2022 with nothing to say so.
+
+Then check it — the date on the market page should be today:
 
 ```bash
 fly open
 curl https://YOUR-APP-NAME.fly.dev/healthz
 ```
+
+If it is not today, the nightly job below will also close the gap on its next
+run.
 
 ## Sign-in
 

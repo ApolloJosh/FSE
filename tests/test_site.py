@@ -194,3 +194,39 @@ def test_the_theme_is_applied_before_the_page_paints():
     head = page[:page.index("</head>")]
     assert THEME_BOOT in head
     assert "fsx-theme" in head
+
+
+def test_a_long_chart_does_not_smear_its_year_labels():
+    """Sixty year labels across 650 pixels is a grey band, not an axis."""
+    import re
+    from datetime import date, timedelta
+
+    from fsx.history import Point
+    from fsx.site import line_chart
+
+    start = date(1959, 1, 1)
+    points = [Point(start + timedelta(days=91 * i), 5.0 + i)
+              for i in range(270)]
+    svg = line_chart(points, "Long Career")
+    years = re.findall(r'text-anchor="middle">(\d{4})<', svg)
+    assert len(years) <= 12, f"{len(years)} year labels is a smear"
+    assert years == sorted(years)
+    gaps = {int(b) - int(a) for a, b in zip(years, years[1:])}
+    assert len(gaps) == 1, f"uneven year labels: {years}"
+
+
+def test_the_price_axis_does_not_go_below_zero():
+    """Nothing in this market can be worth less than the floor, so an axis
+    that reads -9 is describing a market that does not exist."""
+    import re
+
+    from datetime import date, timedelta
+
+    from fsx.history import Point
+    from fsx.site import line_chart
+
+    points = [Point(date(2020, 1, 1) + timedelta(days=30 * i), 2.5 + i * 0.1)
+              for i in range(40)]
+    svg = line_chart(points, "Cheap")
+    labels = re.findall(r'text-anchor="end">([\-\d,]+)</text>', svg)
+    assert labels and all(not v.startswith("-") for v in labels), labels

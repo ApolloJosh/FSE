@@ -219,6 +219,40 @@ def _movers_panel() -> str:
     ])
 
 
+_CAREER_CACHE: dict = {}
+
+
+def career_series(slug: str, person, recorded: list):
+    """"All" means all of it, not all of what the seed happened to reach back to.
+
+    The recorded history starts ten years ago for everybody, so "All" and
+    "10 years" drew the identical chart for a career that began in 1959. The
+    years before the seed are computed from the engine and spliced on in front
+    of the real rows; a career that began inside the seeded window is simply
+    trimmed to start at its first credit.
+    """
+    if person is None or not recorded:
+        return recorded
+    from fsx.history import career_before, career_start
+
+    start = career_start(person)
+    if start is None:
+        return recorded
+    if start >= recorded[0].on:
+        return [p for p in recorded if p.on >= start] or recorded[-1:]
+
+    try:
+        stamp = SNAPSHOT.stat().st_mtime_ns
+    except OSError:
+        stamp = 0
+    key = (slug, stamp, recorded[0].on)
+    if key not in _CAREER_CACHE:
+        if len(_CAREER_CACHE) > 256:
+            _CAREER_CACHE.clear()
+        _CAREER_CACHE[key] = career_before(person, recorded[0].on)
+    return _CAREER_CACHE[key] + recorded
+
+
 SPANS = {"1y": ("1 year", 370), "5y": ("5 years", 1835),
          "10y": ("10 years", 3660), "all": ("All", 40000)}
 
@@ -246,7 +280,10 @@ def stock(request: Request, slug: str, msg: Optional[str] = None, ok: int = 0,
     # Ten years by default: the chart is the career, and a career does not fit
     # in the 400-day window this used to draw.
     everything = views.points_from(db.price_history(conn(), slug, 40000))
-    if everything and span != "all":
+    match = next((p for p in people_from_snapshot() if p.name == row["name"]), None)
+    if span == "all":
+        points = career_series(slug, match, everything)
+    elif everything:
         cutoff = everything[-1].on - timedelta(days=days)
         points = [p for p in everything if p.on >= cutoff] or everything
     else:
@@ -258,8 +295,6 @@ def stock(request: Request, slug: str, msg: Optional[str] = None, ok: int = 0,
 
     events = []
     try:
-        match = next((p for p in people_from_snapshot() if p.name == row["name"]),
-                     None)
         if match:
             scored = [(c, v) for c, v in explain(match) if abs(v) >= 0.5]
             events = [(f"e{i}", c, v) for i, (c, v) in enumerate(scored[:60])]
@@ -280,7 +315,9 @@ def stock(request: Request, slug: str, msg: Optional[str] = None, ok: int = 0,
         drawn = (f'{points[0].on.strftime("%b %Y")} – '
                  f'{points[-1].on.strftime("%b %Y")} · '
                  f'{len(points)} point{"" if len(points) == 1 else "s"}')
-        if span != "all" and len(points) == len(everything):
+        if span == "all" and points[0].on < everything[0].on:
+            drawn += " · the whole career"
+        elif span != "all" and len(points) == len(everything):
             drawn += " · that is everything on file"
     else:
         drawn = "No price history yet."

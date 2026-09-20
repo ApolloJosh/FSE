@@ -50,3 +50,37 @@ def change(points: list[Point], days: int) -> float | None:
     if not earlier or earlier[-1].price <= 0:
         return None
     return points[-1].price / earlier[-1].price - 1
+
+
+def career_start(person: Person) -> date | None:
+    """The day this career began, as the data has it.
+
+    Earliest credit or earliest award, whichever came first. A person with
+    neither has no career to draw.
+    """
+    dates = [c.release_date for c in person.credits if c.release_date]
+    dates += [a.awarded_on for a in person.awards if a.awarded_on]
+    return min(dates) if dates else None
+
+
+def career_before(person: Person, edge: date, step: int = 91,
+                  limit: int = 320) -> list[Point]:
+    """The part of a career that happened before the market started recording.
+
+    The seeded history only reaches back ten years, so "All" and "10 years"
+    drew the same picture for everyone - and for someone who has been working
+    since 1959 that is not all of it. Prices are a function of the date, so the
+    missing decades can be computed rather than stored: quarterly, because
+    nobody needs a fortnightly reading of 1974, and because the recent years
+    the seed does hold are spliced on after this.
+    """
+    start = career_start(person)
+    if start is None or start >= edge:
+        return []
+    span = (edge - start).days
+    step = max(step, -(-span // limit))      # ceiling division
+    days, cursor = [], start
+    while cursor < edge:
+        days.append(cursor)
+        cursor += timedelta(days=step)
+    return [Point(d, value_person(person, d).price) for d in days]
