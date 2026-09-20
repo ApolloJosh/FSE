@@ -62,6 +62,62 @@ tr.hidden { display: none; }
 .board li a { color: var(--ink); text-decoration: none; }
 .board li a:hover { text-decoration: underline; }
 .board .mono { font-family: var(--mono); color: var(--muted); font-size: .86rem; }
+/* A game form is not the trade panel: it stacks, and its labels are not the
+   little uppercase field captions the trade panel uses. Without these the
+   options rendered as grey small-caps in a narrow column with the button
+   floated beside them. */
+.trade form.game { display: block; }
+.trade form.game .choice { font-size: .95rem; text-transform: none;
+  letter-spacing: 0; color: var(--ink); margin: 0; display: flex; }
+
+/* Choices were stacked labels with a margin, which reads as a list of things
+   rather than a set of options to pick between. */
+.choices { display: grid; gap: 0; width: 100%; margin: 14px 0 18px;
+  border: 1px solid var(--rule); border-radius: 2px; overflow: hidden; }
+.choices.two { grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+.choice { display: flex; align-items: center; gap: 10px; padding: 9px 13px;
+  border-top: 1px solid var(--rule); cursor: pointer; font-size: .95rem; }
+.choices > .choice:first-child { border-top: 0; }
+.choices.two > .choice:nth-child(-n+3) { border-top: 0; }
+.choice:hover { background: var(--raised); }
+.choice input { margin: 0; flex: none; }
+.choice span:not(.price) { flex: 1; }
+.choice .price { font-family: var(--mono); font-size: .85rem; color: var(--muted); }
+.choice.spent { opacity: .38; cursor: not-allowed; }
+.choice:has(input:checked) { background: var(--raised); font-weight: 600; }
+
+.budget { display: flex; gap: 26px; padding: 12px 14px; background: var(--raised);
+  border: 1px solid var(--rule); font-family: var(--mono); }
+.budget small { display: block; font-family: var(--sans); font-size: .68rem;
+  text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+.budget strong { font-size: 1.15rem; font-weight: 500; }
+
+.rungs { margin: 0 0 16px; padding: 0; list-style: none; }
+.rungs li { padding: 5px 0; border-top: 1px solid var(--rule); }
+.rungs li:first-child { border-top: 0; }
+.rungs .num { display: inline-block; width: 1.6rem; color: var(--muted);
+  font-family: var(--mono); font-size: .85rem; }
+
+.filmtitle { margin: 0 0 6px; font-size: 1.05rem; }
+.billing { margin: 0 0 4px; padding: 0; list-style: none; display: flex;
+  flex-wrap: wrap; gap: 6px 10px; }
+.billing li { font-size: .92rem; color: var(--ink-2); }
+.billing li + li::before { content: "· "; color: var(--muted); }
+.billing .gap { color: var(--ink); font-weight: 600; border-bottom: 2px solid var(--ink);
+  padding-bottom: 1px; }
+
+.chain { margin: 0 0 18px; padding: 0; list-style: none; }
+.chain .who { font-size: 1.02rem; padding: 3px 0; }
+.chain .who.start, .chain .who.target { font-weight: 600; }
+.chain .link { margin-left: .45rem; padding: 2px 0 2px 14px;
+  border-left: 2px solid var(--rule); font-size: .86rem; color: var(--muted); }
+.chain .link.pending { border-left-style: dashed; }
+.chain .tick { color: var(--up); font-weight: 600; margin-right: 6px; }
+.chain .link .tick { margin-left: -2px; }
+
+.reveal { margin: 0 0 20px; }
+.reveal .rank { width: 2rem; color: var(--muted); font-family: var(--mono); }
+.reveal .total td { border-top: 2px solid var(--rule); font-weight: 600; }
 .reset { display: flex; gap: 12px; align-items: center; margin: 26px 0 0;
   padding-top: 18px; border-top: 1px dashed var(--rule); }
 """

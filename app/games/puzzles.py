@@ -191,9 +191,25 @@ def slate(corpus: Corpus, on: date) -> Puzzle:
         raise NotEnoughData("Not enough people with box office on file.")
 
     pool = rng.sample(sorted(totals), min(12, len(totals)))
-    # A price for the puzzle, derived from the takings so the trade-off is real.
-    prices = {p: max(1, round(totals[p] / 1e8)) for p in pool}
-    budget = int(sum(sorted(prices.values())[:5]) * 1.6) + 1
+
+    # Price has to correlate with takings or there is no trade-off, but not
+    # perfectly, or the puzzle is arithmetic rather than judgement. The square
+    # root compresses a range that otherwise runs 1 to 65 - at which point the
+    # dear names are decoration nobody can afford - and a seeded wobble makes
+    # some of them genuine bargains and some of them traps.
+    prices = {}
+    for person_slug in pool:
+        wobble = 0.75 + rng_for("slate-price", on, person_slug).random() * 0.55
+        scaled = (totals[person_slug] / 1e8) ** 0.5 * 3 * wobble
+        prices[person_slug] = max(1, round(scaled))
+
+    ranked = sorted(prices.values())
+    cheapest, dearest = sum(ranked[:5]), sum(ranked[-5:])
+    # Enough to reach past the bargain bin, not enough to buy the top of it.
+    budget = int(cheapest + (dearest - cheapest) * 0.45)
+    # And never so tight that a name on the board cannot be bought at all:
+    # four others at the floor price still have to fit beside the dearest.
+    budget = max(budget, max(prices.values()) + 4)
 
     best, best_total = _best_slate(pool, prices, totals, budget)
     return Puzzle(
@@ -202,8 +218,10 @@ def slate(corpus: Corpus, on: date) -> Puzzle:
                 "pool": [{"slug": p, "name": corpus.name(p), "price": prices[p]}
                          for p in sorted(pool, key=lambda p: -prices[p])]},
         answer={"prices": prices, "totals": totals, "budget": budget,
-                "best": best, "best_total": best_total},
-        note="Pick five. Highest combined worldwide gross inside the budget wins.")
+                "best": best, "best_total": best_total,
+                "best_spend": sum(prices[p] for p in best)},
+        note="Pick five. The highest combined worldwide gross inside the "
+             "budget wins - so the dear names have to earn their price.")
 
 
 def _best_slate(pool, prices, totals, budget, pick=5):

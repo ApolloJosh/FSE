@@ -42,17 +42,22 @@ def payout_for(game: str, fraction: float) -> int:
 
 
 # ------------------------------------------------------------------- grading
-def grade_six_degrees(puzzle, chain_ok: bool, hops: int) -> Grade:
-    if not chain_ok:
-        return Grade(0.0, payout_for("six-degrees", 0.0), "That chain does not connect.")
+def grade_six_degrees(puzzle, hops: int, misses: int = 0,
+                      gave_up: bool = False) -> Grade:
+    if gave_up:
+        return Grade(0.0, payout_for("six-degrees", 0.0),
+                     f"Gave up after {misses} wrong name"
+                     f"{'' if misses == 1 else 's'}.")
     par = puzzle.answer["par"]
-    over = hops - par
-    fraction = {0: 1.0}.get(over, 0.6 if over == 1 else 0.3 if over == 2 else 0.15)
-    if over < 0:
-        fraction = 1.0
-    detail = ("Par." if over <= 0 else
-              f"{over} over par." if over > 0 else "")
-    return Grade(fraction, payout_for("six-degrees", fraction), detail, True)
+    over = max(0, hops - par)
+    fraction = {0: 1.0, 1: 0.6, 2: 0.3}.get(over, 0.15)
+    # A wrong name costs something, or guessing the roster is a strategy.
+    if misses:
+        fraction *= max(0.4, 1.0 - 0.15 * misses)
+    detail = (f"{hops} hops, par {par}." if over else f"Par, in {hops} hops.")
+    if misses:
+        detail += f" {misses} wrong name{'' if misses == 1 else 's'}."
+    return Grade(fraction, payout_for("six-degrees", fraction), detail, over == 0)
 
 
 def grade_ladder(puzzle, rungs_used: int, correct: bool) -> Grade:

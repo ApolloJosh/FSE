@@ -480,3 +480,77 @@ def test_junk_is_not_written_over_the_snapshot(client, monkeypatch, tmp_path):
                    headers={"Authorization": "Bearer right"})
         assert r.status_code == 400
     assert json.loads(snapshot.read_text())["people"][0]["name"] == "Kept"
+
+
+# ------------------------------------------------------------- six degrees
+def _six_degrees(c, conn):
+    """Sign in and open Six Degrees, returning the corpus and the two ends."""
+    import re
+
+    from app.games.corpus import build
+    from app.main import SNAPSHOT
+    from fsx.site import slug as slugify
+
+    sign_in(c, conn)
+    page = c.get("/play/six-degrees", follow_redirects=True).text
+    start = re.search(r'<li class="who start">([^<]+)</li>', page).group(1)
+    target = re.search(r'<li class="who target">([^<]+)</li>', page).group(1)
+    return build(str(SNAPSHOT)), slugify(start), slugify(target)
+
+
+def test_six_degrees_takes_one_name_at_a_time(client):
+    """Four blanks submitted blind told a player nothing about which of them
+    was wrong, and there is no game in that."""
+    from urllib.parse import unquote
+
+    from app.games.corpus import build
+    from app.games import play
+    from app.main import SNAPSHOT
+
+    c, conn = client
+    corpus = build(str(SNAPSHOT))
+    if not corpus.by_person:
+        pytest.skip("the fixture corpus has nobody to connect")
+    user_id = sign_in(c, conn)
+    page = c.get("/play/six-degrees", follow_redirects=True)
+    if "who start" not in page.text:
+        pytest.skip("no connected pair in this corpus")
+
+    token = _csrf(c, "/play/six-degrees")
+    r = c.post("/play/six-degrees",
+               data={"csrf": token, "action": "link", "answer": "Nobody Here"},
+               follow_redirects=False)
+    assert "not on the roster" in unquote(r.headers["location"])
+    from datetime import date as _date
+    row = play.get(conn, user_id, "six-degrees", _date.today())
+    assert not row["done"], "a name that is not on the roster must not end the game"
+
+
+def test_a_name_that_shares_no_film_is_a_miss_not_a_link(client):
+    from urllib.parse import unquote
+
+    from app.games import play
+    from app.games.corpus import build, shared_films
+    from app.main import SNAPSHOT
+
+    c, conn = client
+    corpus = build(str(SNAPSHOT))
+    user_id = sign_in(c, conn)
+    page = c.get("/play/six-degrees", follow_redirects=True)
+    if "who start" not in page.text:
+        pytest.skip("no connected pair in this corpus")
+    import re
+    from fsx.site import slug as slugify
+    start = slugify(re.search(r'<li class="who start">([^<]+)</li>', page.text).group(1))
+    stranger = next((p for p in corpus.by_person
+                     if p != start and not shared_films(corpus, start, p)), None)
+    if stranger is None:
+        pytest.skip("everyone in this corpus is connected to the start")
+
+    r = c.post("/play/six-degrees",
+               data={"csrf": _csrf(c, "/play/six-degrees"), "action": "link",
+                     "answer": corpus.name(stranger)}, follow_redirects=False)
+    assert "No film links" in unquote(r.headers["location"])
+    from datetime import date as _date
+    state = play.state_of(play.get(conn, user_id, "six-degrees", _date.today()))
+    assert state["misses"] == 1 and len(state.get("chain", [])) == 1

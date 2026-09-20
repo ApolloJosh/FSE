@@ -83,10 +83,77 @@ def _shell(title: str, inner: str, user, msg: str, ok: bool) -> str:
 {flash(msg, ok)}{inner}""", user, depth=1)
 
 
-def _finished(grade_detail: str, payout: int) -> str:
+def _dollars(value) -> str:
+    """One decimal, because two films rounding to the same "$634M" at ranks 1
+    and 2 makes the order look arbitrary."""
+    if not value:
+        return "—"
+    if value >= 1e9:
+        return f"${value / 1e9:,.2f}B"
+    return f"${value / 1e6:,.1f}M"
+
+
+def reveal(state: dict) -> str:
+    """What the answer actually was.
+
+    "1 of 4 pairs in the right order" tells a player their score and nothing
+    they wanted to know. The point of a daily game is finding out.
+    """
+    data = state.get("reveal") or {}
+    kind = data.get("kind")
+
+    if kind == "order":
+        def row(entry):
+            right = entry["yours"] == entry["truth"]
+            mark = "✓" if right else "you said {}".format(entry["yours"])
+            return ('<tr><td class="rank">{}</td><td>{}</td>'
+                    '<td class="num">{}</td>'
+                    '<td class="num {}">{}</td></tr>').format(
+                        entry["truth"], esc(entry["title"]),
+                        _dollars(entry["gross"]),
+                        "up" if right else "down", mark)
+
+        rows = "".join(row(r) for r in data["rows"])
+        return f"""<h2>The real order</h2>
+<table class="reveal"><thead><tr><th class="rank">#</th><th>Film</th>
+<th class="num">Worldwide</th><th class="num">You</th></tr></thead>
+<tbody>{rows}</tbody></table>"""
+
+    if kind == "chain":
+        chain, links = data["chain"], data["links"]
+        items = f'<li class="who start">{esc(chain[0])}</li>'
+        for i, who in enumerate(chain[1:], start=1):
+            films = links[i - 1] if i - 1 < len(links) else []
+            items += (f'<li class="link"><span class="tick">✓</span>'
+                      f'<span class="via">{esc(", ".join(films))}</span></li>'
+                      f'<li class="who"><span class="tick">✓</span>{esc(who)}</li>')
+        return f'<h2>Your chain</h2><ol class="chain">{items}</ol>'
+
+    if kind == "slate":
+        def table(entries, heading):
+            rows = "".join(
+                f'<tr><td>{esc(e["name"])}</td>'
+                f'<td class="num">{e["price"]}</td>'
+                f'<td class="num">{_dollars(e["gross"])}</td></tr>'
+                for e in entries)
+            total = sum(e["gross"] for e in entries)
+            spend = sum(e["price"] for e in entries)
+            return (f'<h2>{heading}</h2><table class="reveal"><thead><tr>'
+                    f'<th>Name</th><th class="num">Cost</th>'
+                    f'<th class="num">Gross</th></tr></thead><tbody>{rows}'
+                    f'<tr class="total"><td>Total</td><td class="num">{spend}</td>'
+                    f'<td class="num">{_dollars(total)}</td></tr>'
+                    f'</tbody></table>')
+        return table(data["yours"], "Your slate") + table(data["best"],
+                                                          "The best slate")
+    return ""
+
+
+def _finished(grade_detail: str, payout: int, state: dict | None = None) -> str:
     return (f'<div class="trade"><p><strong>{esc(grade_detail)}</strong></p>'
             f'<p class="muted">Earned CR {money(db.credits(payout))}. '
-            f'Back tomorrow for a new one.</p></div>')
+            f'Back tomorrow for a new one.</p></div>'
+            + reveal(state or {}))
 
 
 def play_page(game: str, puzzle: Puzzle, row, state: dict, csrf: str,
@@ -94,44 +161,56 @@ def play_page(game: str, puzzle: Puzzle, row, state: dict, csrf: str,
     title, blurb = TITLES[game]
     if row is not None and row["done"]:
         return _shell(title, _finished(state.get("detail", "Finished."),
-                                       row["payout"]), user, msg, ok)
+                                       row["payout"], state), user, msg, ok)
 
-    form_open = (f'<form method="post" action="../play/{game}">'
+    form_open = (f'<form class="game" method="post" action="../play/{game}">'
                  f'<input type="hidden" name="csrf" value="{esc(csrf)}">')
     body = f'<p class="lede">{esc(blurb)}</p><p class="muted">{esc(puzzle.note)}</p>'
 
     if game == "ladder":
         shown = int(state.get("rungs", 1))
         rungs = puzzle.public["rungs"][:shown]
-        listed = "".join(f"<li>{esc(r['title'])} <span class='muted'>({r['year']})</span></li>"
-                         for r in rungs)
+        listed = "".join(
+            f'<li><span class="num">{i}</span> {esc(r["title"])} '
+            f'<span class="muted">({r["year"]})</span></li>'
+            for i, r in enumerate(rungs, 1))
         options = "".join(f'<option value="{esc(o)}">{esc(o)}</option>'
                           for o in puzzle.public["options"])
-        more = ('<button class="btn ghost" name="action" value="reveal">'
-                'Reveal another</button>' if shown < puzzle.max_guesses else '')
-        body += f"""<div class="trade"><ol>{listed}</ol>
+        left = puzzle.max_guesses - shown
+        more = (f'<button class="btn ghost" name="action" value="reveal">'
+                f'Show another film</button>' if left else '')
+        body = f"""<p class="lede">Six films from one person's filmography, the
+most obscure first. Name them from as few as possible.</p>
+<div class="trade">
+<ol class="rungs">{listed}</ol>
 {form_open}
-  <div><label for="answer">Who is it?</label>
-    <select id="answer" name="answer" style="width:16rem">{options}</select></div>
+  <div><label for="answer">Whose filmography is this?</label>
+    <select id="answer" name="answer" style="width:18rem">{options}</select></div>
   <button class="btn" name="action" value="guess">Lock it in</button>{more}
 </form>
-<p class="muted">Rung {shown} of {puzzle.max_guesses}. Fewer rungs, more Credits.</p>
+<p class="muted">{shown} of {puzzle.max_guesses} films shown.
+{"Answering now pays the most." if shown == 1 else
+ f"Each one you show pays less; {left} left." if left else
+ "All six are out - this is the last chance and the smallest payout."}</p>
 </div>"""
 
     elif game == "cast-gap":
         film = puzzle.public
-        shown = ", ".join(film["shown"])
+        billed = "".join(f"<li>{esc(n)}</li>" for n in film["shown"])
         options = "".join(
-            f'<label style="display:block;margin:4px 0"><input type="radio" '
-            f'name="answer" value="{esc(o)}" required> {esc(o)}</label>'
+            f'<label class="choice"><input type="radio" name="answer" '
+            f'value="{esc(o)}" required><span>{esc(o)}</span></label>'
             for o in film["options"])
         tries = int(state.get("guesses", 0))
-        body += f"""<div class="trade">
-<p><strong>{esc(film['title'])}</strong> <span class="muted">({film['year']})</span></p>
-<p>Billed: {esc(shown)}, and one more.</p>
-{form_open}{options}
+        body = f"""<p class="lede">One name is missing from the billing.</p>
+<div class="trade">
+<p class="filmtitle"><strong>{esc(film['title'])}</strong>
+   <span class="muted">({film['year']})</span></p>
+<ul class="billing">{billed}<li class="gap">the missing name</li></ul>
+{form_open}<div class="choices">{options}</div>
 <button class="btn" name="action" value="guess">Answer</button></form>
-<p class="muted">{2 - tries} {'guess' if 2 - tries == 1 else 'guesses'} left.</p></div>"""
+<p class="muted">{2 - tries} {'guess' if 2 - tries == 1 else 'guesses'} left.</p>
+</div>"""
 
     elif game == "box-office":
         rows = "".join(
@@ -147,29 +226,96 @@ def play_page(game: str, puzzle: Puzzle, row, state: dict, csrf: str,
 
     elif game == "six-degrees":
         pub = puzzle.public
+        chain = state.get("chain") or []
+        links = state.get("links") or []
+        names = state.get("chain_names") or []
+        misses = int(state.get("misses", 0))
+
+        steps = f'<li class="who start">{esc(pub["from"])}</li>'
+        for i, who in enumerate(names[1:], start=1):
+            films = links[i - 1] if i - 1 < len(links) else []
+            steps += (f'<li class="link"><span class="tick">✓</span>'
+                      f'<span class="via">{esc(", ".join(films))}</span></li>'
+                      f'<li class="who"><span class="tick">✓</span>{esc(who)}</li>')
+        steps += ('<li class="link pending"><span class="via muted">?</span></li>'
+                  f'<li class="who target">{esc(pub["to"])}</li>')
+
         options = "".join(f'<option value="{esc(n)}">' for n in pub["roster"])
-        steps = "".join(
-            f'<div><label for="s{i}">Step {i}</label>'
-            f'<input id="s{i}" name="step_{i}" list="roster" style="width:13rem"></div>'
-            for i in range(1, 5))
-        body += f"""<div class="trade">
-<p><strong>{esc(pub['from'])}</strong> → <strong>{esc(pub['to'])}</strong></p>
+        undo = ('<button class="btn ghost" name="action" value="undo">Undo</button>'
+                if len(names) > 1 else '')
+        body = f"""<p class="lede">Connect the two through people they have
+actually shared a film with — one name at a time.</p>
+<div class="trade">
+<ol class="chain">{steps}</ol>
 <datalist id="roster">{options}</datalist>
-{form_open}{steps}
-<button class="btn" name="action" value="guess">Submit chain</button></form>
-<p class="muted">Name the people in between. Leave later steps blank if you need
-fewer. Par is {pub['par']}.</p></div>"""
+{form_open}
+  <div><label for="answer">Who links
+    {esc(names[-1] if names else pub["from"])} onward?</label>
+    <input id="answer" name="answer" list="roster" autocomplete="off"
+           style="width:18rem" required></div>
+  <button class="btn" name="action" value="link">Lock it in</button>{undo}
+  <button class="btn ghost" name="action" value="giveup">Give up</button>
+</form>
+<p class="muted">Par is {pub['par']} hop{'' if pub['par'] == 1 else 's'}.
+{f"{misses} wrong so far." if misses else "A wrong name costs you."}</p>
+</div>"""
 
     elif game == WEEKLY:
         pub = puzzle.public
         picks = "".join(
-            f'<label style="display:block;margin:3px 0">'
-            f'<input type="checkbox" name="pick" value="{esc(p["slug"])}"> '
-            f'{esc(p["name"])} <span class="muted">— {p["price"]}</span></label>'
+            f'<label class="choice"><input type="checkbox" name="pick" '
+            f'value="{esc(p["slug"])}" data-price="{p["price"]}">'
+            f'<span>{esc(p["name"])}</span>'
+            f'<span class="price">{p["price"]}</span></label>'
             for p in pub["pool"])
-        body += f"""<div class="trade">
-<p>Budget: <strong>{pub['budget']}</strong>. Pick exactly five.</p>
-{form_open}{picks}
-<button class="btn" name="action" value="guess">Lock in the slate</button></form></div>"""
+        body = f"""<p class="lede">Pick five. The highest combined worldwide
+gross inside the budget wins, so the dear names have to earn their price.</p>
+<div class="trade">
+<div class="budget">
+  <span><small>Budget</small><strong id="budget">{pub['budget']}</strong></span>
+  <span><small>Spent</small><strong id="spent">0</strong></span>
+  <span><small>Picked</small><strong id="picked">0</strong>/5</span>
+</div>
+{form_open}<div class="choices two">{picks}</div>
+<button class="btn" id="lock" name="action" value="guess" disabled>
+  Lock in the slate</button></form>
+<p class="muted" id="slatehint">Pick five names inside the budget.</p>
+</div>
+<script>
+// A budget you can only discover by submitting is not a budget.
+(function () {{
+  var boxes = [].slice.call(document.querySelectorAll('input[name="pick"]'));
+  var budget = {pub['budget']};
+  var spent = document.getElementById('spent');
+  var picked = document.getElementById('picked');
+  var lock = document.getElementById('lock');
+  var hint = document.getElementById('slatehint');
+  function tally() {{
+    var chosen = boxes.filter(function (b) {{ return b.checked; }});
+    var cost = chosen.reduce(function (t, b) {{
+      return t + parseInt(b.dataset.price, 10);
+    }}, 0);
+    spent.textContent = cost;
+    picked.textContent = chosen.length;
+    spent.className = cost > budget ? 'down' : '';
+    // Grey out what you can no longer afford, and what would be a sixth pick.
+    boxes.forEach(function (b) {{
+      if (b.checked) {{ b.disabled = false; return; }}
+      var price = parseInt(b.dataset.price, 10);
+      b.disabled = chosen.length >= 5 || cost + price > budget;
+      b.parentNode.classList.toggle('spent', b.disabled);
+    }});
+    var ready = chosen.length === 5 && cost <= budget;
+    lock.disabled = !ready;
+    hint.textContent = ready
+      ? 'Five picked, ' + (budget - cost) + ' left over.'
+      : chosen.length < 5
+        ? (5 - chosen.length) + ' more to pick, ' + (budget - cost) + ' left.'
+        : 'Over budget by ' + (cost - budget) + '.';
+  }}
+  boxes.forEach(function (b) {{ b.addEventListener('change', tally); }});
+  tally();
+}})();
+</script>"""
 
     return _shell(title, body, user, msg, ok)

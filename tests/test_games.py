@@ -254,3 +254,37 @@ def test_the_minigame_leaderboard_ranks_this_month(conn):
     play.finish(conn, b, "ladder", today, scoring.Grade(0.2, 80, "", False), {})
     board = leaderboards.minigames(conn)
     assert [e.user_id for e in board] == [a, b]
+
+
+# ------------------------------------------------------------------ the slate
+def test_every_name_on_the_slate_can_actually_be_bought():
+    """The budget was 1.6x the five cheapest, so names cost more than the whole
+    budget on their own and were decoration nobody could pick."""
+    from app.games.puzzles import generate
+
+    for day in range(7):
+        puzzle = generate("slate", DAY + timedelta(days=7 * day), SNAPSHOT)
+        budget = puzzle.public["budget"]
+        prices = [p["price"] for p in puzzle.public["pool"]]
+        # the dearest name, plus four others at the floor, has to fit
+        assert max(prices) + 4 <= budget, (
+            f"{max(prices)} cannot be bought inside {budget}")
+
+
+def test_the_slate_budget_does_not_buy_the_whole_board():
+    """It has to be a choice: enough to reach past the bargain bin, not enough
+    to take the top five."""
+    from app.games.puzzles import generate
+
+    for day in range(7):
+        puzzle = generate("slate", DAY + timedelta(days=7 * day), SNAPSHOT)
+        prices = sorted(p["price"] for p in puzzle.public["pool"])
+        assert puzzle.public["budget"] < sum(prices[-5:])
+
+
+def test_the_slate_reveals_the_best_slate_it_was_measured_against():
+    from app.games.puzzles import generate
+
+    answer = generate("slate", DAY, SNAPSHOT).answer
+    assert len(answer["best"]) == 5
+    assert answer["best_spend"] <= answer["budget"]

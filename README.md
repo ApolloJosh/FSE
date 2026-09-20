@@ -291,7 +291,7 @@ that prices the market — so playing them teaches you to read it.
 
 | Game | What it asks | Pays |
 | --- | --- | --- |
-| Six Degrees | Connect two actors through films they shared | CR 0.60–1.80 |
+| Six Degrees | Connect two actors, one name at a time | CR 0.60–1.80 |
 | The Ladder | Six films, obscurest first — name the actor | CR 0.60–1.80 |
 | Box Office Blind | Rank five films by worldwide gross | CR 0.40–1.20 |
 | Cast Gap | One name is missing from the billing | CR 0.40–1.20 |
@@ -305,6 +305,12 @@ Tomatoes audience score, which is not licensable — see the data table above. T
 slot stays empty rather than being filled with a proxy.
 
 ### Two rules the generators obey
+
+**The answer is worth finding out.** A daily game that says "1 of 4 pairs in
+the right order" has told you your score and nothing you wanted to know, so
+Box Office Blind reveals the real order with the grosses, the Slate shows the
+best slate beside yours, and Six Degrees leaves your chain on the page with the
+films that link it.
 
 **Deterministic per day.** The seed is a hash of the game name and the date, so
 everyone gets the same puzzle and nothing has to be stored. A daily game people
