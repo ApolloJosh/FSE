@@ -1,41 +1,103 @@
-# The nightly reprice, for the deployed game.
+# The nightly run for the deployed game: look for new work, ship the snapshot,
+# reprice.
 #
-# It is an HTTP call rather than a scheduled machine because SQLite lives on a
-# Fly volume, a volume attaches to one machine at a time, and the web app holds
-# it. The request also wakes the machine, which suspends when nobody is
-# browsing - so this both triggers the job and provides the reason the machine
-# is awake to run it.
+# The fetch happens here rather than on Fly because this is where the API keys
+# and the fetch cache live, and because an hour-long job does not belong inside
+# a web request. The app then takes the finished snapshot over HTTP - which
+# also wakes the machine, since it suspends when nobody is browsing.
 #
-# Marking is idempotent: a day already marked is never marked twice, however
-# many times this fires.
+# Both endpoints are idempotent: a day already marked is never marked twice,
+# and a snapshot that has lost most of the roster is refused rather than
+# written.
 name: Reprice the market
 
 on:
   schedule:
-    - cron: "40 9 * * *"        # 09:40 UTC, after the US close and the Pages build
+    - cron: "40 9 * * *"
   workflow_dispatch:
     inputs:
       dividends:
         description: "Also pay the quarterly dividend"
         type: boolean
         default: false
+      skip_refresh:
+        description: "Reprice only - do not look for new credits"
+        type: boolean
+        default: false
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
 
 jobs:
-  mark:
+  nightly:
     runs-on: ubuntu-latest
+    env:
+      HOST: ${{ secrets.FSX_HOST }}
+      TOKEN: ${{ secrets.FSX_JOB_TOKEN }}
+      TMDB_READ_ACCESS_TOKEN: ${{ secrets.TMDB_READ_ACCESS_TOKEN }}
+      OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
     steps:
-      - name: Reprice
-        env:
-          HOST: ${{ secrets.FSX_HOST }}
-          TOKEN: ${{ secrets.FSX_JOB_TOKEN }}
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Check the setup
         run: |
           if [ -z "$HOST" ] || [ -z "$TOKEN" ]; then
-            echo "FSX_HOST or FSX_JOB_TOKEN is not set; nothing to call."
-            exit 0
+            echo "::error::FSX_HOST or FSX_JOB_TOKEN is not set in repository secrets."
+            exit 1
           fi
+
+      # Permanent by design for films, dated for filmographies - so this is
+      # what keeps the nightly check to one call per person instead of a
+      # cold refetch of everything.
+      - name: Restore the fetch cache
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: fsx-fetch-${{ github.run_id }}
+          restore-keys: fsx-fetch-
+
+      - name: Look for new credits
+        if: ${{ !inputs.skip_refresh && env.TMDB_READ_ACCESS_TOKEN != '' }}
+        run: python -m fsx.cli refresh --snapshot data/people.json
+
+      - name: Ship the snapshot
+        if: ${{ !inputs.skip_refresh }}
+        run: |
           code=$(curl -sS -o response.json -w '%{http_code}' -X POST \
-            --max-time 120 --retry 3 --retry-delay 20 --retry-connrefused \
+            --max-time 300 --retry 3 --retry-delay 20 --retry-connrefused \
             -H "Authorization: Bearer $TOKEN" \
-            "https://$HOST/jobs/mark?dividends=${{ inputs.dividends && 1 || 0 }}")
+            -H "Content-Type: application/json" \
+            --data-binary @data/people.json \
+            "https://$HOST/jobs/snapshot")
           cat response.json; echo
           test "$code" = "200"
+
+      - name: Reprice
+        run: |
+          code=$(curl -sS -o mark.json -w '%{http_code}' -X POST \
+            --max-time 300 --retry 3 --retry-delay 20 --retry-connrefused \
+            -H "Authorization: Bearer $TOKEN" \
+            "https://$HOST/jobs/mark?dividends=${{ inputs.dividends && 1 || 0 }}")
+          cat mark.json; echo
+          test "$code" = "200"
+
+      # The refreshed snapshot is also what the static site and the next run
+      # build from, so it belongs in the repo rather than only on the volume.
+      - name: Commit the snapshot
+        if: ${{ !inputs.skip_refresh }}
+        run: |
+          if git diff --quiet -- data/people.json; then
+            echo "No change to the snapshot."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/people.json
+          git commit -m "Nightly refresh: new credits and awards"
+          git push

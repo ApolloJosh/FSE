@@ -416,3 +416,67 @@ def test_the_mark_endpoint_runs_and_is_idempotent(client, monkeypatch, tmp_path)
     assert first.status_code == 200 and first.json()["ok"] is True
     second = c.post("/jobs/mark", headers={"Authorization": "Bearer right"})
     assert second.status_code == 200 and second.json()["skipped"] is True
+
+
+def test_the_snapshot_endpoint_replaces_the_market_data(client, monkeypatch, tmp_path):
+    import json
+
+    from fsx.models import Person
+    from fsx.store import save
+
+    from app import main
+    c, _ = client
+    monkeypatch.setattr(main, "JOB_TOKEN", "right")
+    snapshot = tmp_path / "people.json"
+    save([Person(name=f"P{i}") for i in range(10)], snapshot)
+    monkeypatch.setattr(main, "SNAPSHOT", snapshot)
+
+    body = json.loads(snapshot.read_text())
+    body["people"].append({"name": "New Face", "credits": [], "awards": []})
+    r = c.post("/jobs/snapshot", content=json.dumps(body),
+               headers={"Authorization": "Bearer right"})
+    assert r.status_code == 200 and r.json() == {"ok": True, "people": 11, "was": 10}
+    assert len(json.loads(snapshot.read_text())["people"]) == 11
+
+
+def test_a_snapshot_that_lost_the_roster_is_refused(client, monkeypatch, tmp_path):
+    """A fetch that half failed must not be allowed to delist 200 people."""
+    import json
+
+    from fsx.models import Person
+    from fsx.store import save
+
+    from app import main
+    c, _ = client
+    monkeypatch.setattr(main, "JOB_TOKEN", "right")
+    snapshot = tmp_path / "people.json"
+    save([Person(name=f"P{i}") for i in range(100)], snapshot)
+    monkeypatch.setattr(main, "SNAPSHOT", snapshot)
+
+    body = json.loads(snapshot.read_text())
+    body["people"] = body["people"][:40]
+    r = c.post("/jobs/snapshot", content=json.dumps(body),
+               headers={"Authorization": "Bearer right"})
+    assert r.status_code == 409
+    assert len(json.loads(snapshot.read_text())["people"]) == 100
+
+
+def test_junk_is_not_written_over_the_snapshot(client, monkeypatch, tmp_path):
+    import json
+
+    from fsx.models import Person
+    from fsx.store import save
+
+    from app import main
+    c, _ = client
+    monkeypatch.setattr(main, "JOB_TOKEN", "right")
+    snapshot = tmp_path / "people.json"
+    save([Person(name="Kept")], snapshot)
+    monkeypatch.setattr(main, "SNAPSHOT", snapshot)
+
+    for junk in ("not json at all", json.dumps({"people": []}),
+                 json.dumps({"nope": 1})):
+        r = c.post("/jobs/snapshot", content=junk,
+                   headers={"Authorization": "Bearer right"})
+        assert r.status_code == 400
+    assert json.loads(snapshot.read_text())["people"][0]["name"] == "Kept"

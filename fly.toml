@@ -11,6 +11,7 @@ primary_region = 'iad'
 
 [env]
   FSX_DB = '/data/market.db'
+  FSX_SNAPSHOT = '/data/people.json'
   FSX_ENV = 'production'
 
 # SQLite lives on the volume, never in the image - otherwise every deploy

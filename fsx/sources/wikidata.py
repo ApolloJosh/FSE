@@ -94,7 +94,8 @@ class Wikidata(HTTPSource):
     def require_key(self) -> None:
         return None
 
-    def query(self, sparql: str, cache_key: str, attempts: int = 4) -> list[dict[str, Any]]:
+    def query(self, sparql: str, cache_key: str, attempts: int = 4,
+              max_age_days: float | None = None) -> list[dict[str, Any]]:
         """Query with backoff.
 
         Wikidata's public endpoint throttles, and a single unretried failure is
@@ -105,7 +106,7 @@ class Wikidata(HTTPSource):
         further into the run it got, which is exactly what throttling looks
         like. Failures are never cached, so a rerun retries only these.
         """
-        cached = self.cache.get(cache_key)
+        cached = self.cache.get(cache_key, max_age_days)
         if cached is not None:
             return cached
 
@@ -132,7 +133,7 @@ class Wikidata(HTTPSource):
                 continue
             response.raise_for_status()
             rows = response.json()["results"]["bindings"]
-            self.cache.set(cache_key, rows)
+            self.cache.set(cache_key, rows, stamp=max_age_days is not None)
             return rows
 
         raise RuntimeError(f"Wikidata failed after {attempts} attempts: {last}")
@@ -146,8 +147,13 @@ class Wikidata(HTTPSource):
             f"qid_imdb:{imdb_person_id}")
         return rows[0]["p"]["value"].rsplit("/", 1)[-1] if rows else None
 
-    def awards(self, qid: str) -> list[Award]:
-        """Every award and nomination Wikidata holds for a person."""
+    def awards(self, qid: str, max_age_days: float | None = None) -> list[Award]:
+        """Every award and nomination Wikidata holds for a person.
+
+        `max_age_days` is for the nightly refresh. Awards arrive in bursts
+        around ceremonies, and this is the expensive query, so a week-long age
+        spreads the roster over a week of nights instead of re-asking for all
+        of it every time."""
         # The label service derives ?awardLabel from a variable named ?award.
         # Naming it ?a returns rows with no label at all, which is silent - the
         # query succeeds and every award is dropped. See test_label_variables.
@@ -161,7 +167,7 @@ SELECT ?kind ?awardLabel ?date WHERE {{
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
 }}"""
         out: list[Award] = []
-        for row in self.query(sparql, f"awards:{qid}"):
+        for row in self.query(sparql, f"awards:{qid}", max_age_days=max_age_days):
             label = row.get("awardLabel", {}).get("value")
             if not label:
                 continue        # no label, nothing to classify

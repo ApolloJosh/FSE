@@ -177,9 +177,22 @@ repository secret**, twice:
 | `FSX_HOST` | `film-stock-exchange.fly.dev` |
 
 `.github/workflows/mark.yml` fires at 09:40 UTC daily, and can be run by hand
-from the Actions tab. Marking is idempotent — a day already marked is never
-marked twice — so a retry, a double fire or an impatient second click all do
-nothing.
+from the Actions tab. It does three things: looks for work that has come out
+since the snapshot, ships the new snapshot to the app, and reprices.
+
+Add the API keys as repository secrets too, or the refresh step skips itself
+and the run only reprices: `TMDB_READ_ACCESS_TOKEN` and `OMDB_API_KEY`.
+
+The fetch runs in the Action rather than on Fly because that is where the keys
+and the fetch cache live, and because an hour-long job has no business inside a
+web request. The app receives the finished file at `POST /jobs/snapshot`,
+writes it to a temporary file and renames it, so a connection that drops
+halfway cannot leave the market reading half a file — and refuses a snapshot
+that has lost more than a tenth of the roster, because that is a failed fetch
+rather than news.
+
+Everything here is idempotent. A day already marked is never marked twice, so a
+retry, a double fire or an impatient second click all do nothing.
 
 To run it once yourself:
 

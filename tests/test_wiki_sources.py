@@ -265,7 +265,7 @@ def _sparql_of(method, *args):
     source = Wikidata()
     captured = {}
 
-    def fake_query(sparql, cache_key):
+    def fake_query(sparql, cache_key, **kw):
         captured["sparql"] = sparql
         return []
 
@@ -301,7 +301,7 @@ def test_films_info_batches_ids_into_one_query():
 def test_an_award_row_with_no_label_is_skipped_not_crashed():
     from fsx.sources.wikidata import Wikidata
     source = Wikidata()
-    source.query = lambda *_: [
+    source.query = lambda *_, **__: [
         {"kind": {"value": "won"}, "date": {"value": "2020-01-01T00:00:00Z"}},
     ]
     assert source.awards("Q1") == []
@@ -310,7 +310,7 @@ def test_an_award_row_with_no_label_is_skipped_not_crashed():
 def test_awards_map_and_date_correctly():
     from fsx.sources.wikidata import Wikidata
     source = Wikidata()
-    source.query = lambda *_: [
+    source.query = lambda *_, **__: [
         {"kind": {"value": "won"},
          "awardLabel": {"value": "Academy Award for Best Director"},
          "date": {"value": "2024-01-01T00:00:00Z"}},
@@ -333,7 +333,7 @@ def test_awards_reach_the_engine_as_career_points():
     from fsx.sources.wikidata import Wikidata
 
     source = Wikidata()
-    source.query = lambda *_: [
+    source.query = lambda *_, **__: [
         {"kind": {"value": "won"},
          "awardLabel": {"value": "Academy Award for Best Actress"},
          "date": {"value": "2023-01-01T00:00:00Z"}},

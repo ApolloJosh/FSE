@@ -252,9 +252,21 @@ quarterly dividends of 0.5% plus 0.25% per full year held, capped at 2%.
 ### The nightly job
 
 `python -m app.jobs mark` reprices the market from the snapshot and marks every
-position through the conviction ladder. Deployed, the same job runs behind
-`POST /jobs/mark`, called by `.github/workflows/mark.yml` and guarded by
-`FSX_JOB_TOKEN` — see DEPLOY.md for why it is an HTTP call and not a cron. It is **idempotent** — a day already
+position through the conviction ladder.
+
+`python -m fsx.cli refresh` is the other half: it asks TMDB for each person's
+credit list, diffs it against the snapshot, and fetches details only for what
+is genuinely new. One call per person, about two minutes for the whole roster,
+against hours for a full backfill — which is what makes "the market moves when
+something comes out" true without anyone running anything by hand. Awards go on
+a slower clock, a seven-day cache age that spreads the roster over a week of
+nights, because they arrive in bursts around ceremonies and the query is the
+expensive one.
+
+Deployed, both run from `.github/workflows/mark.yml`: it refreshes, posts the
+snapshot to `POST /jobs/snapshot`, then calls `POST /jobs/mark`. Both endpoints
+are guarded by `FSX_JOB_TOKEN`. See DEPLOY.md for why the fetch happens in the
+Action and the job is an HTTP call rather than a cron. It is **idempotent** — a day already
 marked is never marked twice, however many times it runs, because paying a gain
 twice is the one failure nobody would spot.
 

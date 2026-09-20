@@ -26,8 +26,26 @@ from . import auth, db, leaderboards, marking, views
 from .trading import SETTLEMENT_DAYS, TradeError, buy, buy_slot, days_between, sell
 
 ROOT = Path(__file__).resolve().parents[1]
-SNAPSHOT = Path(os.environ.get("FSX_SNAPSHOT", ROOT / "data" / "people.json"))
+BUNDLED_SNAPSHOT = ROOT / "data" / "people.json"
+# The snapshot is data, not code, and it changes when a film comes out - which
+# is nightly, not per release. Baked into the image it could only change on a
+# redeploy, so the deployed market could never learn that anyone had worked.
+# On a host with a volume it lives there, seeded from the image on first boot.
+SNAPSHOT = Path(os.environ.get("FSX_SNAPSHOT", BUNDLED_SNAPSHOT))
 DB_PATH = Path(os.environ.get("FSX_DB", ROOT / "data" / "market.db"))
+
+
+def _seed_snapshot() -> None:
+    if SNAPSHOT == BUNDLED_SNAPSHOT or SNAPSHOT.exists():
+        return
+    try:
+        SNAPSHOT.parent.mkdir(parents=True, exist_ok=True)
+        SNAPSHOT.write_bytes(BUNDLED_SNAPSHOT.read_bytes())
+    except OSError:
+        pass        # fall back to whatever is in the image
+
+
+_seed_snapshot()
 
 IS_PRODUCTION = os.environ.get("FSX_ENV") == "production"
 # "Up and comers" needs a ceiling, and it should be one a new player can reach.
@@ -561,3 +579,58 @@ def run_mark(request: Request, dividends: int = 0):
     return {"ok": True, "on": date.today().isoformat(), "skipped": report.skipped,
             "stocks": report.stocks, "positions": report.positions,
             "gains": report.gains, "losses": report.losses}
+
+
+@app.post("/jobs/snapshot")
+async def put_snapshot(request: Request):
+    """Replace the snapshot the market prices from.
+
+    The nightly refresh runs where the API keys and the fetch cache are, and
+    posts the result here. Written to a temporary file and renamed, so a
+    connection that drops halfway cannot leave the market reading half a file.
+    """
+    import json
+    import secrets as _secrets
+    import tempfile
+
+    if not JOB_TOKEN:
+        raise HTTPException(status_code=404, detail="No job token configured.")
+    header = request.headers.get("authorization", "")
+    offered = header[7:] if header.lower().startswith("bearer ") else ""
+    if not _secrets.compare_digest(offered, JOB_TOKEN):
+        raise HTTPException(status_code=403, detail="Bad job token.")
+
+    body = await request.body()
+    try:
+        payload = json.loads(body)
+        people = payload["people"]
+        if not isinstance(people, list) or not people:
+            raise ValueError("no people")
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400,
+                            detail=f"Not a snapshot: {exc}") from exc
+
+    # A snapshot that has lost most of the roster is a failed fetch, not news.
+    current = 0
+    try:
+        current = len(json.loads(SNAPSHOT.read_text())["people"])
+    except Exception:                                  # noqa: BLE001
+        pass
+    if current and len(people) < current * 0.9:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Refused: {len(people)} people replacing {current}. "
+                   "That is a failed fetch, not a smaller roster.")
+
+    SNAPSHOT.parent.mkdir(parents=True, exist_ok=True)
+    handle = tempfile.NamedTemporaryFile(
+        "wb", dir=SNAPSHOT.parent, delete=False, suffix=".tmp")
+    try:
+        handle.write(body)
+        handle.close()
+        os.replace(handle.name, SNAPSHOT)
+    except OSError as exc:
+        os.unlink(handle.name)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return {"ok": True, "people": len(people), "was": current}

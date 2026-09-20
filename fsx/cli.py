@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -132,6 +133,266 @@ def cmd_reference(args) -> int:
     return 0
 
 
+def enrich_credits(credits, omdb, wikidata, wikipedia, stats, attempt,
+                   use_omdb: bool = True) -> None:
+    """Layer review scores and money onto a batch of credits, in place.
+
+    The backfill does this for a whole filmography and the nightly refresh does
+    it for the two films that appeared yesterday. Sharing it is what stops a
+    new credit being scored differently from an old one.
+    """
+    info = {}
+    if wikidata:
+        ids = [getattr(c, "imdb_id", None) for c in credits]
+        info = attempt("wikidata.films_info", wikidata.films_info, ids) or {}
+
+    for credit in credits:
+        imdb_id = getattr(credit, "imdb_id", None)
+
+        if omdb is not None and omdb.available and use_omdb and not omdb.exhausted:
+            attempt(f"omdb:{credit.title}", omdb.enrich, credit)
+            if omdb.exhausted:
+                print("    OMDb daily limit reached - continuing on Wikidata "
+                      "scores. Rerun tomorrow to fill the gaps; everything "
+                      "already fetched is cached.", file=sys.stderr)
+            if credit.imdb is not None:
+                stats["omdb"] += 1
+
+        entry = info.get(imdb_id or "", {})
+        for field, value in (entry.get("scores") or {}).items():
+            if getattr(credit, field, None) is None:
+                setattr(credit, field, value)
+                stats["wikidata_scores"] += 1
+
+        # TMDB's money thins out badly below ~$10M; Wikipedia's infobox
+        # carried a budget for 87% of a sample and a gross for 93%.
+        article = entry.get("article")
+        if wikipedia and article and (credit.budget is None
+                                      or credit.worldwide_gross is None):
+            money = attempt(f"wikipedia:{article}",
+                            wikipedia.film_money, article) or {}
+            for field, value in money.items():
+                if getattr(credit, field, None) is None:
+                    setattr(credit, field, value)
+                    stats["wikipedia_money"] += 1
+
+
+def select_new(payload: dict, known: set, cutoff: str, today: str,
+               max_new: int, is_director: bool) -> list[dict]:
+    """Which entries in a TMDB credit list count as work released since we last
+    looked.
+
+    "New" means released since the snapshot - NOT merely absent from it. A
+    filmography is capped at --max-credits, so everything below the cut is
+    absent by design: without the cutoff, Meryl Streep's Kramer vs. Kramer
+    reads as tonight's news and the job spends weeks dragging in a back
+    catalogue nobody asked for.
+    """
+    from .sources.tmdb import appearance_of
+
+    entries = payload.get("crew" if is_director else "cast") or []
+    if is_director:
+        entries = [e for e in entries if e.get("job") == "Director"]
+    else:
+        entries = [e for e in entries
+                   if appearance_of(e.get("character")) in ("role", "narration")]
+
+    fresh = []
+    for entry in entries:
+        released = entry.get("release_date")
+        if not released or released > today or released < cutoff:
+            continue
+        if (entry.get("title"), released) in known:
+            continue
+        fresh.append(entry)
+
+    # Newest first, and capped: a filmography that suddenly gains forty entries
+    # is a data change, not forty premieres.
+    fresh.sort(key=lambda e: e["release_date"], reverse=True)
+    return fresh[:max_new]
+
+
+def _match_key(name: str) -> str:
+    """Compare names the way a person means them, not the way they are typed.
+
+    The roster is hand-written ASCII; the snapshot holds what TMDB returned.
+    Without this, "Zoe Saldana" never finds "Zoe Saldaña"."""
+    import unicodedata
+    folded = unicodedata.normalize("NFKD", name)
+    folded = folded.encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]", "", folded.lower())
+
+
+def cmd_refresh(args) -> int:
+    """Look for work that has come out since the snapshot, and only fetch that.
+
+    A full backfill is hours, because it refetches a whole filmography per
+    person. What actually changes overnight is small: a film opened, an awards
+    ceremony happened. So this asks TMDB for each person's credit list - one
+    call each, roughly two minutes for the whole roster - diffs it against the
+    snapshot, and fetches details only for what is genuinely new.
+
+    That is what makes "the market moves when something comes out" true without
+    anyone running anything by hand.
+    """
+    _load_env()
+    from datetime import date as _date, timedelta
+
+    from .sources.omdb import OMDb
+    from .sources.tmdb import TMDB, appearance_of
+    from .sources.wikidata import Wikidata
+    from .sources.wikipedia import Wikipedia
+    from .store import load, save
+
+    snapshot_path = Path(args.snapshot)
+    if not snapshot_path.exists():
+        print(f"No snapshot at {snapshot_path}. Run a backfill first.",
+              file=sys.stderr)
+        return 1
+
+    tmdb = TMDB()
+    if not tmdb.available:
+        print("TMDB needs TMDB_READ_ACCESS_TOKEN or TMDB_API_KEY.", file=sys.stderr)
+        return 1
+    omdb = OMDb()
+    wikipedia = None if args.no_wiki else Wikipedia()
+    wikidata = None if args.no_wiki else Wikidata()
+
+    people, was = load(snapshot_path)
+    try:
+        looked = _date.fromisoformat(was)
+    except (TypeError, ValueError):
+        looked = _date.today()
+    cutoff = (looked - timedelta(days=args.since_days)).isoformat()
+    # The roster is typed by a person and the snapshot stores what TMDB
+    # returned, so "Penelope Cruz" has to find "Penélope Cruz" or the refresh
+    # lists her a second time. Eleven of the roster were about to be
+    # duplicated, which on a market means two stocks in the same career.
+    by_name = {_match_key(p.name): p for p in people}
+    today = _date.today()
+
+    failures: list[str] = []
+
+    def attempt(label: str, fn, *a, **kw):
+        try:
+            return fn(*a, **kw)
+        except Exception as exc:                      # noqa: BLE001
+            failures.append(f"{label}: {type(exc).__name__}")
+            return None
+
+    stats = {"omdb": 0, "wikidata_scores": 0, "wikipedia_money": 0, "awards": 0,
+             "dropped_credits": 0}
+    added: list[tuple[str, str]] = []
+    new_people: list[str] = []
+    award_changes: list[tuple[str, int]] = []
+
+    # Anyone on the roster who is not in the snapshot yet gets a full build.
+    roster = [n.strip() for n in Path(args.roster).read_text().splitlines()
+              if n.strip() and not n.startswith("#")] if args.roster else []
+    for raw in roster:
+        name = raw.rstrip("*").strip()
+        if _match_key(name) in by_name:
+            continue
+        person = attempt("tmdb.build_person", tmdb.build_person, name,
+                         as_director=raw.endswith("*"),
+                         max_credits=args.max_credits)
+        if person is None:
+            continue
+        enrich_credits(person.credits, omdb, wikidata, wikipedia, stats, attempt,
+                       use_omdb=not args.no_omdb)
+        people.append(person)
+        by_name[_match_key(person.name)] = person
+        new_people.append(person.name)
+
+    for i, person in enumerate(people, 1):
+        if person.name in new_people or not person.tmdb_id:
+            continue
+        if args.limit and i > args.limit:
+            break
+
+        payload = attempt(f"credits:{person.name}", tmdb.person_credits,
+                          person.tmdb_id, args.credits_max_age_days)
+        if not payload:
+            continue
+
+        known = {(c.title, c.release_date.isoformat()) for c in person.credits}
+        fresh = select_new(payload, known, cutoff, today.isoformat(),
+                           args.max_new, person.is_director)
+
+        built = []
+        for entry in fresh:
+            credit = attempt(f"credit:{entry.get('title')}",
+                             tmdb.build_credit, entry, person.is_director)
+            if credit is None:
+                stats["dropped_credits"] += 1
+                continue
+            built.append(credit)
+            added.append((person.name, f"{credit.title} ({credit.release_date})"))
+
+        if built:
+            enrich_credits(built, omdb, wikidata, wikipedia, stats, attempt,
+                           use_omdb=not args.no_omdb)
+            person.credits.extend(built)
+
+        # Awards, on a slower clock. They arrive in bursts around ceremonies,
+        # and the query is the expensive one, so the cache age spreads the
+        # roster over roughly a week rather than doing all of it every night.
+        if wikidata and not args.no_awards:
+            person_imdb = attempt("tmdb.person_imdb_id", tmdb.person_imdb_id,
+                                  person.tmdb_id)
+            qid = attempt("wikidata.qid", wikidata.qid_for_imdb,
+                          person_imdb) if person_imdb else None
+            if qid:
+                awards = attempt("wikidata.awards", wikidata.awards, qid,
+                                 args.awards_max_age_days)
+                if awards is not None and len(awards) != len(person.awards):
+                    award_changes.append((person.name,
+                                          len(awards) - len(person.awards)))
+                    person.awards = awards
+                    stats["awards"] += len(awards)
+
+    print(f"snapshot was {was}; checked {len(people)} people "
+          f"for anything released since {cutoff}")
+    if new_people:
+        print(f"newly listed: {', '.join(new_people)}")
+    if added:
+        print(f"{len(added)} new credits:")
+        for who, what in added[:20]:
+            print(f"   {who} - {what}")
+        if len(added) > 20:
+            print(f"   and {len(added) - 20} more")
+    if award_changes:
+        print(f"{len(award_changes)} award histories changed: "
+              + ", ".join(f"{n} {d:+d}" for n, d in award_changes[:10]))
+    if not (added or new_people or award_changes):
+        print("nothing new.")
+
+    if failures:
+        from collections import Counter
+        tally = Counter(f.split(":")[0] for f in failures)
+        print(f"{len(failures)} calls failed and were skipped: "
+              + ", ".join(f"{k} x{v}" for k, v in tally.most_common()),
+              file=sys.stderr)
+
+    # Belt and braces on the name matching above: a market with the same
+    # career listed twice is worse than a market missing someone.
+    seen: dict[str, int] = {}
+    for person in people:
+        seen[_match_key(person.name)] = seen.get(_match_key(person.name), 0) + 1
+    dupes = [n for n, count in seen.items() if count > 1]
+    if dupes:
+        print(f"refusing to write: {len(dupes)} duplicated names ({dupes[:5]})",
+              file=sys.stderr)
+        return 1
+
+    if args.dry_run:
+        print("(dry run - nothing written)")
+        return 0
+    out = save(people, snapshot_path)
+    print(f"wrote {out}")
+    return 0
+
+
 def cmd_backfill(args) -> int:
     _load_env()
     from .sources.omdb import OMDb
@@ -234,42 +495,8 @@ def cmd_backfill(args) -> int:
                 person.awards = awards
                 stats["awards"] += len(awards)
 
-        # One batched Wikidata call per person resolves review scores and the
-        # exact Wikipedia article for every credit at once.
-        info = {}
-        if wikidata:
-            ids = [getattr(c, "imdb_id", None) for c in person.credits]
-            info = attempt("wikidata.films_info", wikidata.films_info, ids) or {}
-
-        for credit in person.credits:
-            imdb_id = getattr(credit, "imdb_id", None)
-
-            if omdb.available and not args.no_omdb and not omdb.exhausted:
-                attempt(f"omdb:{credit.title}", omdb.enrich, credit)
-                if omdb.exhausted:
-                    print("    OMDb daily limit reached - continuing on Wikidata "
-                          "scores. Rerun tomorrow to fill the gaps; everything "
-                          "already fetched is cached.", file=sys.stderr)
-                if credit.imdb is not None:
-                    stats["omdb"] += 1
-
-            entry = info.get(imdb_id or "", {})
-            for field, value in (entry.get("scores") or {}).items():
-                if getattr(credit, field, None) is None:
-                    setattr(credit, field, value)
-                    stats["wikidata_scores"] += 1
-
-            # TMDB's money thins out badly below ~$10M; Wikipedia's infobox
-            # carried a budget for 87% of a sample and a gross for 93%.
-            article = entry.get("article")
-            if wikipedia and article and (credit.budget is None
-                                          or credit.worldwide_gross is None):
-                money = attempt(f"wikipedia:{article}",
-                                wikipedia.film_money, article) or {}
-                for field, value in money.items():
-                    if getattr(credit, field, None) is None:
-                        setattr(credit, field, value)
-                        stats["wikipedia_money"] += 1
+        enrich_credits(person.credits, omdb, wikidata, wikipedia, stats, attempt,
+                       use_omdb=not args.no_omdb)
 
         people.append(person)
 
@@ -345,10 +572,37 @@ def main(argv: list[str] | None = None) -> int:
     backfill.add_argument("--dry-run", action="store_true",
                           help="estimate the call budget and stop")
 
+    refresh = sub.add_parser(
+        "refresh", help="fetch only what has come out since the snapshot")
+    refresh.add_argument("--snapshot", default="data/people.json")
+    refresh.add_argument("--roster", default="roster.txt",
+                         help="anyone here and not in the snapshot is built in full")
+    refresh.add_argument("--max-credits", type=int, default=100,
+                         help="window for a person being listed for the first time")
+    refresh.add_argument("--since-days", type=int, default=120,
+                         help="how far before the snapshot date to look for "
+                              "releases (default 120, to catch a festival film "
+                              "that gets a real date later)")
+    refresh.add_argument("--max-new", type=int, default=6,
+                         help="most new credits to accept per person in one run; a "
+                              "filmography that gains forty is a data change, not "
+                              "forty premieres")
+    refresh.add_argument("--credits-max-age-days", type=float, default=1.0,
+                         help="how stale a cached credit list may be (default 1 day)")
+    refresh.add_argument("--awards-max-age-days", type=float, default=7.0,
+                         help="how stale a cached award history may be (default 7 "
+                              "days, which spreads the roster over a week)")
+    refresh.add_argument("--no-awards", action="store_true")
+    refresh.add_argument("--no-omdb", action="store_true")
+    refresh.add_argument("--no-wiki", action="store_true")
+    refresh.add_argument("--limit", dest="limit", type=int, default=0)
+    refresh.add_argument("--dry-run", action="store_true",
+                         help="report what changed and write nothing")
+
     args = parser.parse_args(argv)
     return {"fixtures": cmd_fixtures, "reference": cmd_reference,
             "snapshot": cmd_snapshot, "site": cmd_site,
-            "backfill": cmd_backfill}[args.command](args)
+            "backfill": cmd_backfill, "refresh": cmd_refresh}[args.command](args)
 
 
 if __name__ == "__main__":

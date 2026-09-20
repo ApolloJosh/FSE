@@ -144,7 +144,7 @@ def test_one_unreachable_film_does_not_cost_the_whole_person():
              "release_date": "2018-01-01"}]
 
     source.search_person = lambda name: {"id": 7, "name": name}
-    source.person_credits = lambda pid: {"cast": cast}
+    source.person_credits = lambda pid, age=None: {"cast": cast}
     source.release_shape = lambda mid: ("wide", None)
     source.movie_cast_size = lambda mid: 10
 
@@ -166,7 +166,7 @@ def test_a_missing_cast_size_is_not_fatal_either():
 
     source = TMDB(api_key="k")
     source.search_person = lambda name: {"id": 7, "name": name}
-    source.person_credits = lambda pid: {"cast": [
+    source.person_credits = lambda pid, age=None: {"cast": [
         {"id": 1, "title": "Film", "character": "Lead", "order": 0,
          "release_date": "2020-01-01"}]}
     source.movie = lambda mid: {"runtime": 100, "imdb_id": "tt1"}
@@ -180,3 +180,55 @@ def test_a_missing_cast_size_is_not_fatal_either():
     person = source.build_person("Someone", on_skip=lambda t, e: skipped.append(t))
     assert len(person.credits) == 1 and person.credits[0].cast_size is None
     assert skipped == ["Film (cast size)"]
+
+
+# ------------------------------------------------------------ nightly refresh
+def _entry(title, released, character="Lead"):
+    return {"id": abs(hash(title)) % 10000, "title": title,
+            "character": character, "order": 0, "release_date": released}
+
+
+def test_new_means_released_since_we_looked_not_absent_from_the_snapshot():
+    """A filmography is capped, so everything below the cut is absent by
+    design. Without a cutoff the nightly job reads Kramer vs. Kramer as
+    tonight's news and spends weeks dragging in a back catalogue."""
+    from fsx.cli import select_new
+
+    payload = {"cast": [_entry("Kramer vs. Kramer", "1979-12-07"),
+                        _entry("Out Last Night", "2026-09-18")]}
+    fresh = select_new(payload, known=set(), cutoff="2026-05-22",
+                       today="2026-09-19", max_new=6, is_director=False)
+    assert [e["title"] for e in fresh] == ["Out Last Night"]
+
+
+def test_a_film_already_in_the_snapshot_is_not_new():
+    from fsx.cli import select_new
+
+    payload = {"cast": [_entry("Already Have It", "2026-09-01")]}
+    known = {("Already Have It", "2026-09-01")}
+    assert select_new(payload, known, "2026-05-22", "2026-09-19", 6, False) == []
+
+
+def test_an_unreleased_film_is_not_new_yet():
+    from fsx.cli import select_new
+
+    payload = {"cast": [_entry("Next Year", "2027-06-01")]}
+    assert select_new(payload, set(), "2026-05-22", "2026-09-19", 6, False) == []
+
+
+def test_documentary_appearances_are_not_new_work():
+    from fsx.cli import select_new
+
+    payload = {"cast": [_entry("A Doc About Them", "2026-09-01", "Self"),
+                        _entry("Old Clips", "2026-09-02", "Self (archive footage)"),
+                        _entry("A Real Part", "2026-09-03", "Lead")]}
+    fresh = select_new(payload, set(), "2026-05-22", "2026-09-19", 6, False)
+    assert [e["title"] for e in fresh] == ["A Real Part"]
+
+
+def test_a_burst_of_new_entries_is_capped():
+    """Forty new entries is a data change, not forty premieres."""
+    from fsx.cli import select_new
+
+    payload = {"cast": [_entry(f"Film {i}", f"2026-08-{i:02d}") for i in range(1, 21)]}
+    assert len(select_new(payload, set(), "2026-05-22", "2026-09-19", 6, False)) == 6

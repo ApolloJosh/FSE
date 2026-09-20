@@ -71,13 +71,16 @@ class TMDB(HTTPSource):
 
     # A filmography is the one thing here that is never finished. Cached for
     # good, a stock could never learn that its owner had released something -
-    # which is most of what the game is supposed to price.
+    # which is most of what the game is supposed to price. The nightly refresh
+    # passes a shorter age, because a week late is a week of a price being
+    # wrong about a film that is already out.
     CREDITS_MAX_AGE_DAYS = 7
 
-    def person_credits(self, person_id: int) -> dict[str, Any]:
+    def person_credits(self, person_id: int,
+                       max_age_days: float | None = None) -> dict[str, Any]:
         return self.get(f"/person/{person_id}/movie_credits",
                         dict(self.auth), f"credits:{person_id}",
-                        max_age_days=self.CREDITS_MAX_AGE_DAYS)
+                        max_age_days=max_age_days or self.CREDITS_MAX_AGE_DAYS)
 
     def movie(self, movie_id: int) -> dict[str, Any]:
         return self.get(f"/movie/{movie_id}", dict(self.auth), f"movie:{movie_id}")
@@ -133,9 +136,46 @@ class TMDB(HTTPSource):
         return min(len(data.get("cast") or []), PRINCIPAL_CAST) or PRINCIPAL_CAST
 
     # ------------------------------------------------------------------ build
+    def build_credit(self, entry: dict[str, Any], as_director: bool = False,
+                     on_skip: Optional[Callable[[str, Exception], None]] = None
+                     ) -> Optional[Credit]:
+        """One credit, fully fetched. Shared by the backfill and the nightly
+        refresh, so a film that opens tonight is scored exactly the way every
+        film already in the snapshot was."""
+        released = _parse_date(entry.get("release_date"))
+        if not released or released > date.today():
+            return None
+
+        detail = self.movie(entry["id"])
+        credit = Credit(
+            title=entry.get("title", "?"),
+            release_date=released,
+            is_director=as_director,
+            billing_order=None if as_director else entry.get("order"),
+            cast_size=None if as_director else self._cast_size_or_none(
+                entry["id"], entry.get("title", "?"), on_skip),
+            budget=detail.get("budget") or None,
+            worldwide_gross=detail.get("revenue") or None,
+            appearance=("role" if as_director
+                        else appearance_of(entry.get("character"))),
+        )
+        # These two are enrichment. A film scores without them, so a failure
+        # here costs that detail and nothing else.
+        try:
+            credit.release_kind, credit.digital_window_days = \
+                self.release_shape(entry["id"])
+        except Exception as exc:                              # noqa: BLE001
+            if on_skip:
+                on_skip(f"{entry.get('title', '?')} (release dates)", exc)
+        credit.tmdb_id = entry["id"]                          # type: ignore[attr-defined]
+        credit.imdb_id = detail.get("imdb_id")                # type: ignore[attr-defined]
+        credit.runtime_minutes = detail.get("runtime") or 0   # type: ignore[attr-defined]
+        return credit
+
     def build_person(self, name: str, as_director: bool = False,
                      max_credits: int = 60,
-                     on_skip: Optional[Callable[[str, Exception], None]] = None
+                     on_skip: Optional[Callable[[str, Exception], None]] = None,
+                     credits_max_age_days: Optional[float] = None
                      ) -> Optional[Person]:
         """Assemble a Person with everything TMDB knows. Review scores are layered
         on afterwards by the OMDb source, keyed on imdb_id.
@@ -153,7 +193,7 @@ class TMDB(HTTPSource):
 
         person = Person(name=found.get("name", name), tmdb_id=found["id"],
                         is_director=as_director)
-        credits_payload = self.person_credits(found["id"])
+        credits_payload = self.person_credits(found["id"], credits_max_age_days)
         entries = credits_payload.get("crew" if as_director else "cast") or []
         if as_director:
             entries = [e for e in entries if e.get("job") == "Director"]
@@ -172,41 +212,13 @@ class TMDB(HTTPSource):
         entries.sort(key=lambda e: e["release_date"], reverse=True)
 
         for entry in entries[:max_credits]:
-            released = _parse_date(entry.get("release_date"))
-            if not released or released > date.today():
-                continue
-
             try:
-                detail = self.movie(entry["id"])
+                credit = self.build_credit(entry, as_director, on_skip)
             except Exception as exc:                          # noqa: BLE001
                 if on_skip:
                     on_skip(entry.get("title", "?"), exc)
                 continue
-            runtime = detail.get("runtime") or 0
-
-            credit = Credit(
-                title=entry.get("title", "?"),
-                release_date=released,
-                is_director=as_director,
-                billing_order=None if as_director else entry.get("order"),
-                cast_size=None if as_director else self._cast_size_or_none(
-                    entry["id"], entry.get("title", "?"), on_skip),
-                budget=detail.get("budget") or None,
-                worldwide_gross=detail.get("revenue") or None,
-                appearance=("role" if as_director
-                            else appearance_of(entry.get("character"))),
-            )
-            # These two are enrichment. A film scores without them, so a
-            # failure here costs that detail and nothing else.
-            try:
-                credit.release_kind, credit.digital_window_days = \
-                    self.release_shape(entry["id"])
-            except Exception as exc:                          # noqa: BLE001
-                if on_skip:
-                    on_skip(f"{entry.get('title', '?')} (release dates)", exc)
-            credit.tmdb_id = entry["id"]                      # type: ignore[attr-defined]
-            credit.imdb_id = detail.get("imdb_id")            # type: ignore[attr-defined]
-            credit.runtime_minutes = runtime                  # type: ignore[attr-defined]
-            person.credits.append(credit)
+            if credit is not None:
+                person.credits.append(credit)
 
         return person
