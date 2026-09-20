@@ -334,33 +334,68 @@ def test_an_unfinished_slate_is_not_graded(client):
     assert "Earned" not in row.text
 
 
-def test_a_tester_can_replay_the_day(client):
-    """Playing a game locks it, which is right for a player and useless for
-    whoever is checking the generators."""
+def test_anyone_can_replay_the_day(client):
+    """Playing a puzzle a second time is practice, and there is no reason to
+    forbid it."""
+    from datetime import date as _date
+
+    from app.games import play
+
     c, conn = client
     user_id = sign_in(c, conn)
-    from app.games import play
-    from datetime import date as _date
     play.start(conn, user_id, "ladder", _date.today())
-    assert play.get(conn, user_id, "ladder", _date.today()) is not None
     r = c.post("/play/reset", data={"csrf": _csrf(c, "/play")},
                follow_redirects=False)
     assert r.status_code == 303
-    assert play.get(conn, user_id, "ladder", _date.today()) is None
+    row = play.get(conn, user_id, "ladder", _date.today())
+    assert row is not None and not row["done"], "the day should be open again"
 
 
-def test_the_replay_button_is_refused_in_production(client, monkeypatch):
-    """On a real host a replay button is a Credits printer."""
-    from app import auth
-    c, conn = client
-    user_id = sign_in(c, conn)
-    from app.games import play
+def test_a_replay_pays_nothing(client):
+    """The day is worth exactly one payout however many times it is played."""
     from datetime import date as _date
-    play.start(conn, user_id, "ladder", _date.today())
-    token = _csrf(c, "/play")       # while the button is still rendered
-    monkeypatch.setattr(auth, "dev_login_allowed", lambda: False)
-    c.post("/play/reset", data={"csrf": token}, follow_redirects=False)
-    assert play.get(conn, user_id, "ladder", _date.today()) is not None
+
+    from app import db
+    from app.games import play, scoring
+
+    c, conn = client
+    user_id = sign_in(c, conn, credits=0)
+    today = _date.today()
+    grade = scoring.Grade(1.0, db.cents(1.80), "Par.", True)
+
+    play.start(conn, user_id, "ladder", today)
+    assert play.finish(conn, user_id, "ladder", today, grade, {}) == db.cents(1.80)
+    after_first = db.user(conn, user_id)["credits"]
+
+    play.clear_day(conn, user_id, today)
+    assert play.finish(conn, user_id, "ladder", today, grade, {}) == 0
+    assert db.user(conn, user_id)["credits"] == after_first
+
+    # and the day still reads as earned, so the streak and the board hold
+    row = play.get(conn, user_id, "ladder", today)
+    assert row["payout"] == db.cents(1.80) and row["paid"] == 1
+    assert scoring.streak_length(conn, user_id, today) == 1
+
+
+def test_a_replay_does_not_unlock_the_day_bonus_twice(client):
+    from datetime import date as _date
+
+    from app import db
+    from app.games import play, scoring
+
+    c, conn = client
+    user_id = sign_in(c, conn, credits=0)
+    today = _date.today()
+    perfect = scoring.Grade(1.0, db.cents(1.80), "Par.", True)
+    for game in scoring.DAILY_GAMES:
+        play.start(conn, user_id, game, today)
+        play.finish(conn, user_id, game, today, perfect, {})
+    assert scoring.finish_day(conn, user_id, today) is not None
+
+    play.clear_day(conn, user_id, today)
+    for game in scoring.DAILY_GAMES:
+        play.finish(conn, user_id, game, today, perfect, {})
+    assert scoring.finish_day(conn, user_id, today) is None
 
 
 def test_the_oauth_callback_is_https_in_production(client, monkeypatch):
@@ -581,3 +616,40 @@ def test_the_span_links_return_you_to_the_chart(client):
     page = c.get("/stock/mid").text
     assert 'id="history"' in page
     assert page.count("#history") >= 4
+
+
+# ------------------------------------------------------------------ the front
+def test_the_landing_page_is_not_the_board(client):
+    """312 rows of detail is the wrong thing to meet first."""
+    c, _ = client
+    home = c.get("/").text
+    assert "Today's games" in home
+    assert "Top billing" in home
+    assert 'id="rows"' not in home, "the full board belongs on its own page"
+    assert 'href="market"' in home
+
+
+def test_the_board_has_its_own_page(client):
+    c, _ = client
+    board = c.get("/market").text
+    assert 'id="rows"' in board and "The whole board" in board
+
+
+def test_every_page_explains_cp_and_cr(client):
+    """A +1,300 event against a CR 70 price reads as broken arithmetic until
+    you know there is a curve in between."""
+    c, _ = client
+    for path in ("/", "/market", "/stock/mid", "/leaderboards", "/about", "/signin"):
+        page = c.get(path, follow_redirects=True).text
+        assert "What are CP and CR" in page, f"{path} has no key"
+
+
+def test_the_key_quotes_the_real_curve():
+    """Hard-coded figures in an explainer drift away from the engine."""
+    from fsx import constants as K
+    from fsx.decay import price_from_cp
+    from fsx.site import key_block
+
+    text = key_block()
+    assert f"{K.PRICE_COEF} × CP" in text and f"{K.PRICE_EXP}" in text
+    assert f"{price_from_cp(1300):,.2f}" in text

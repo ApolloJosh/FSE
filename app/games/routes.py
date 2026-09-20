@@ -51,23 +51,22 @@ def hub(request: Request, msg: Optional[str] = None, ok: int = 0):
 
 @router.post("/play/reset")
 def reset_today(request: Request, csrf: str = Form(...)):
-    """Wipe today's plays so the games can be played again.
+    """Open today's games up to be played again.
 
-    Testing the puzzles means playing them, and playing one locks it for the
-    day - which is right for a player and useless for whoever is checking the
-    generators. Local only, on the same switch as the test player: on a real
-    host a replay button is a Credits printer.
+    Anyone can, because playing a puzzle a second time is practice and there is
+    no reason to forbid it. What a replay cannot do is pay: the row keeps its
+    payout and its paid flag, so the day is worth exactly one payout however
+    many times it is played.
     """
     from app import auth as app_auth
     conn, user, _ = _ctx(request)
     app_auth.check_csrf(request, csrf)
     user_id = app_auth.require_user_id(request)
-    if not app_auth.dev_login_allowed():
-        return RedirectResponse("/play", status_code=303)
     play.clear_day(conn, user_id, date.today())
     play.clear_day(conn, user_id, _weekly_date(date.today()))
-    return RedirectResponse("/play?msg=Today's games are open again.&ok=1",
-                            status_code=303)
+    return RedirectResponse(
+        "/play?msg=Today's games are open again. A replay pays nothing.&ok=1",
+        status_code=303)
 
 
 def _remember(state: dict, corpus, chain: list, links: list, misses: int) -> None:

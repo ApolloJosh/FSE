@@ -7,8 +7,9 @@ import sqlite3
 from datetime import date, datetime
 
 from fsx.history import Point
-from fsx.site import (FONT_LINK, STYLE, THEME_BOOT, THEME_BUTTON, esc, line_chart,
-                      money, pct, shell as static_shell, sparkline, trend_class)
+from fsx.site import (FONT_LINK, STYLE, THEME_BOOT, THEME_BUTTON, esc, key_block,
+                      line_chart, money, pct, shell as static_shell, sparkline,
+                      trend_class)
 
 from . import db
 
@@ -128,7 +129,7 @@ def chrome(title: str, body: str, user: sqlite3.Row | None, depth: int = 0) -> s
     up = "../" * depth
     # "Market" is spelled out even though the wordmark goes to the same place.
     # Nobody reads a wordmark as a way back.
-    market = f'<a href="{up or "/"}">Market</a>'
+    market = f'<a href="{up}market">Market</a>'
     if user:
         right = (f'<span class="balance">CR {money(db.credits(user["credits"]))}</span>'
                  f'{market}'
@@ -155,7 +156,8 @@ def chrome(title: str, body: str, user: sqlite3.Row | None, depth: int = 0) -> s
   <a class="wordmark" href="{up}">Film Stock Exchange</a>
   <nav class="authbar">{right}</nav>
 </header>
-<main>{body}</main>
+<main>{body}
+{key_block()}</main>
 <footer>
   <p>Prices are fictional and move only on released work and juried awards.
      No real money, no cash-out, nothing to win but bragging rights.</p>
@@ -222,6 +224,57 @@ def billboard(rows: list[dict]) -> str:
 </a>"""
     return ('<section class="starring"><p class="over">Top billing</p>'
             f'<div class="billboard">{cards}</div></section>')
+
+
+def landing_page(top: list[dict], movers: str, games: dict, user,
+                 listed: int, market_value: float, as_of: str) -> str:
+    """The front door. The board is 312 rows of detail, which is the wrong
+    thing to meet first - this says what the place is, shows today's games, and
+    shows enough of the market to make you want the rest of it."""
+    steps = [
+        ("Earn", "Play the day's puzzles. They pay Credits, and they are built "
+                 "from the same film data that prices the market."),
+        ("Back somebody", "Buy shares in an actor or a director. Prices come "
+                          "from released work — awards, box office, reviews — "
+                          "and nothing else. No hype, no votes."),
+        ("Hold", "A gain counts for more the longer you were holding when it "
+                 "happened. Get there before the rest of the board and the "
+                 "same Oscar is worth more to you."),
+    ]
+    how = "".join(f"""<li><span class="step">{i}</span>
+  <div><h3>{esc(title)}</h3><p>{esc(text)}</p></div></li>"""
+                  for i, (title, text) in enumerate(steps, 1))
+
+    cards = ""
+    for game, (title, blurb) in games["titles"].items():
+        row = games["rows"].get(game)
+        state = ('<span class="up">Played</span>' if row and row["done"]
+                 else '<span class="muted">Open</span>' if user
+                 else '<span class="muted">Sign in to play</span>')
+        cards += (f'<li><a href="play/{esc(game)}"><b>{esc(title)}</b>'
+                  f'<span class="muted">{esc(blurb)}</span></a>{state}</li>')
+
+    earned = (f'<p class="muted">Earned today: <b>CR '
+              f'{money(db.credits(games["earned"]))}</b>.</p>' if user else "")
+
+    return chrome("Film Stock Exchange",
+                  masthead(listed, market_value, as_of) + f"""
+<section class="intro">
+  <p class="lede">A market in the people who make films. Every price is derived
+  from work that has actually come out — awards, box office and how the reviews
+  landed — run through one formula, and it moves when the work does.</p>
+  <ol class="how">{how}</ol>
+</section>
+
+<h2>Today's games</h2>
+{earned}
+<ul class="gamelist">{cards}</ul>
+<p class="more"><a href="play">All of today's games →</a></p>
+
+<h2>The market today</h2>
+""" + billboard(top) + movers + """
+<p class="more"><a href="market">See the whole board →</a></p>
+""", user)
 
 
 def credit_block(rows: list[dict], tiers: dict[str, int]) -> str:

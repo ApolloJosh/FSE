@@ -337,3 +337,197 @@ David Fincher*
 Kathryn Bigelow*
 Sean Durkin*
 Brady Corbet*
+
+# --- Added from the last two years of results ------------------------------
+# The rule: every film released Sep 2024 - Sep 2026 that our roster touched and
+# that either took $50M worldwide or scored 7.4+ on 400+ votes. For each of
+# those, the director and the top three billed. Voice casts of animated films
+# are left out - only their directors carry over - because a voice in a cartoon
+# is not a leading role the market should price off.
+#
+# Hannah Einbinder, Hannah Waddingham and Austin Abrams are here because Josh
+# named them; the first two are television careers, which a film corpus cannot
+# see by itself.
+#
+# PRUNE THIS. It is 179 names and the backfill is roughly four hours.
+Hannah Einbinder
+Hannah Waddingham
+Austin Abrams
+Sam Worthington
+Jaafar Jackson
+Nia Long
+Jason Momoa
+Jack Black
+Sebastian Eugene Hansen
+James Ortiz
+Damson Idris
+David Corenswet
+Rachel Brosnahan
+Hayley Atwell
+Ving Rhames
+Jeff Goldblum
+Ebon Moss-Bachrach
+Ben Schwartz
+Jim Carrey
+Chiwetel Ejiofor
+Juno Temple
+Michael Keaton
+Winona Ryder
+Danny Ramirez
+Amanda Seyfried
+Brandon Sklenar
+Julia Louis-Dreyfus
+Hailee Steinfeld
+Miles Caton
+Catherine Lagaʻaia
+Rena Owen
+Julia Garner
+Alden Ehrenreich
+Jesse Eisenberg
+Ariana Greenblatt
+Hong Chau
+Colin Firth
+Marlon Wayans
+Shawn Wayans
+Anna Faris
+Hugh Bonneville
+Ben Whishaw
+Emily Mortimer
+Sean Penn
+Lady Gaga
+Gal Gadot
+Andrew Burnap
+Gwyneth Paltrow
+Odessa A'zion
+Lucy Liu
+Bill Skarsgård
+Zhang Zifeng
+Tony Leung Ka-fai
+Aaron Taylor-Johnson
+Alfie Williams
+Jared Leto
+Evan Peters
+Edward Norton
+Elle Fanning
+Leo Woodall
+Renée Zellweger
+Ana de Armas
+Ian McShane
+Steve Zahn
+Alana Haim
+Nicholas Braun
+Ewan McGregor
+Ben Wang
+Joshua Jackson
+Stanley Tucci
+John Lithgow
+Camila Mendes
+Dakota Johnson
+Michelle Dockery
+Elizabeth McGovern
+Jessie Buckley
+Emily Watson
+Jon Bernthal
+Ben Affleck
+Cynthia Addai-Robinson
+Liam Neeson
+Pamela Anderson
+Paul Walter Hauser
+Holt McCallany
+Danny Sapani
+Allison Williams
+Mckenna Grace
+Dave Franco
+Temuera Morrison
+Morfydd Clark
+Demi Moore
+Dennis Quaid
+Halle Berry
+Lee Pace
+Will Forte
+Lana Condor
+John Cena
+Ariana DeBose
+Antonio Banderas
+Jack O'Connell
+Kate Hudson
+Michael Imperioli
+Mark Eydelshteyn
+Yura Borisov
+Seth Rogen
+Olivia Wilde
+Olivia Wilde
+
+# directors
+Destin Daniel Cretton*
+Jared Bush*
+Byron Howard*
+Andrew Stanton*
+David G. Derrick Jr.*
+Jason Hand*
+Dana Ledoux Miller*
+Antoine Fuqua*
+Michael Jelenic*
+Aaron Horvath*
+Jared Hess*
+Gareth Edwards*
+David Frankel*
+Phil Lord*
+Christopher Miller*
+Joseph Kosinski*
+Christopher McQuarrie*
+Matt Shakman*
+Jeff Fowler*
+Kelly Marcel*
+Tim Burton*
+Julius Onah*
+Paul Feig*
+Daniel Chong*
+Jake Schreier*
+Jon Favreau*
+Chris Sanders*
+Thomas Kail*
+Zach Cregger*
+Ruben Fleischer*
+Pierre Perifel*
+Michael Tiddes*
+Dougal Wilson*
+Todd Phillips*
+Marc Webb*
+Tyree Dillihay*
+Jake Kasdan*
+Larry Yang*
+Derek Drymon*
+Madeline Sharafian*
+Domee Shi*
+Adrian Molina*
+Danny Boyle*
+Peter Hastings*
+Joachim Rønning*
+James Mangold*
+Michael Morris*
+Len Wiseman*
+Tom Gormican*
+Kristoffer Borgli*
+Kyle Balda*
+Josh Cooley*
+Chris Miller*
+David Robert Mitchell*
+Jonathan Entwistle*
+Travis Knight*
+Simon Curtis*
+Gavin O'Connor*
+Akiva Schaffer*
+Liza Johnson*
+James Hawes*
+Josh Boone*
+Ángel Manuel Soto*
+Jang Seong-ho*
+Aneil Karia*
+Bart Layton*
+Edgar Wright*
+Dave Green*
+J.C. Chandor*
+Halina Reijn*
+Nia DaCosta*
+Craig Brewer*

@@ -110,8 +110,10 @@ def grade_slate(puzzle, picked: list[str]) -> Grade:
 # -------------------------------------------------------------- daily bonuses
 def streak_length(conn, user_id: int, on: date) -> int:
     """Consecutive days on which the player finished at least one game."""
+    # `paid`, not `done`: a day being replayed has done cleared, and a streak
+    # that drops while you practise is a punishment for practising.
     rows = conn.execute(
-        "SELECT DISTINCT on_date FROM plays WHERE user_id = ? AND done = 1"
+        "SELECT DISTINCT on_date FROM plays WHERE user_id = ? AND paid = 1"
         " AND on_date <= ? ORDER BY on_date DESC LIMIT 400",
         (user_id, on.isoformat())).fetchall()
     days = [r["on_date"] for r in rows]
@@ -132,7 +134,7 @@ def streak_bonus(streak: int) -> int:
 def finish_day(conn, user_id: int, on: date) -> tuple[int, str] | None:
     """Pay the perfect-day and streak bonuses, once, when the set is complete."""
     rows = conn.execute(
-        "SELECT game, fraction FROM plays WHERE user_id = ? AND on_date = ? AND done = 1",
+        "SELECT game, fraction FROM plays WHERE user_id = ? AND on_date = ? AND paid = 1",
         (user_id, on.isoformat())).fetchall()
     finished = {r["game"]: r["fraction"] for r in rows}
     if not all(g in finished for g in DAILY_GAMES):

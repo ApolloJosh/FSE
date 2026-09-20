@@ -166,6 +166,47 @@ FONT_LINK = (
     '<link rel="stylesheet" '
     'href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600&display=swap">')
 
+def key_block() -> str:
+    """What CP and CR are, and why they are not the same number.
+
+    The panel shows an event as +1,300 and the price as CR 70, which reads as
+    broken arithmetic until you know there is a curve in between. Every figure
+    here is computed from the live constants, so it cannot drift from what the
+    engine actually does.
+    """
+    from .decay import price_from_cp
+
+    ladder = [(0, "a first small part"), (300, "a few credits"),
+              (1300, "a working career"), (4000, "an established one"),
+              (8000, "the top of the board")]
+    rows = "".join(
+        f'<tr><td class="num">{cp:,}</td><td class="num">'
+        f'{money(price_from_cp(cp))}</td><td>{esc(what)}</td></tr>'
+        for cp, what in ladder)
+    small = price_from_cp(1600) - price_from_cp(300)
+    large = price_from_cp(5300) - price_from_cp(4000)
+
+    return f"""<details class="key">
+<summary>What are CP and CR?</summary>
+<div class="keybody">
+<p><b>CP — career points.</b> The score. Every event in a career is worth some
+CP: a credit, the reviews, the box office, an award. That is what the
+<i>why it moved</i> panel lists, and why a big film shows as +1,300.</p>
+<p><b>CR — Credits.</b> The price. What a share costs and what your portfolio
+is worth. CP is turned into CR by one curve, which flattens as it climbs:</p>
+<p class="formula">CR = {K.PRICE_FLOOR:.2f} + {K.PRICE_COEF} × CP<sup>{K.PRICE_EXP}</sup></p>
+<table class="keytable"><thead><tr><th class="num">CP</th>
+<th class="num">CR</th><th>Roughly</th></tr></thead><tbody>{rows}</tbody></table>
+<p>So a +1,300 film is not +CR 1,300. It is about
+<b>CR {small:,.0f}</b> to somebody just starting out, and about
+<b>CR {large:,.0f}</b> to somebody already established — the same work, worth
+less the higher up you are. That flattening is the whole game: the cheap
+unknown who breaks out moves further than the legend who wins again, so
+scouting beats hoarding.</p>
+</div>
+</details>"""
+
+
 THEME_BOOT = """<script>
 try {
   var t = localStorage.getItem('fsx-theme');
@@ -193,7 +234,8 @@ def shell(title: str, body: str, built: str, depth: int = 0) -> str:
   <a class="wordmark" href="{up}index.html">Film Stock Exchange</a>
   <nav><a href="{up}about.html">How prices work</a> {THEME_BUTTON}</nav>
 </header>
-<main>{body}</main>
+<main>{body}
+{key_block()}</main>
 <footer>
   <p>Prices are fictional and move only on released work and juried awards.
      No real money, no trading. Built {esc(built)}.</p>
@@ -581,6 +623,54 @@ tbody tr:hover { background: var(--raised); }
 .spans a.on { background: var(--rule-hard); color: var(--surface); }
 .drawn { margin: 8px 0 0; font-family: var(--mono); font-size: .8rem;
   color: var(--muted); }
+
+/* ------------------------------------------------------------- the landing */
+.intro { margin: 26px 0 8px; }
+.intro .lede { max-width: 66ch; margin: 0 auto; text-align: center; }
+.how { list-style: none; margin: 26px 0 0; padding: 0; display: grid; gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); }
+.how li { display: flex; gap: 12px; align-items: flex-start; }
+.how .step { font-family: var(--poster); font-size: 1.5rem; line-height: 1;
+  color: var(--red); border: 2px solid var(--red); width: 2rem; height: 2rem;
+  display: grid; place-items: center; flex: none; }
+.how h3 { font-size: .95rem; margin: 2px 0 3px; }
+.how p { margin: 0; font-size: .9rem; color: var(--ink-2); }
+
+.gamelist { list-style: none; margin: 8px 0 6px; padding: 0;
+  border: 1px solid var(--rule-hard); }
+.gamelist li { display: flex; align-items: baseline; gap: 14px; padding: 10px 14px;
+  border-top: 1px solid var(--rule); }
+.gamelist li:first-child { border-top: 0; }
+.gamelist li:hover { background: var(--raised); }
+.gamelist a { flex: 1; text-decoration: none; display: flex; gap: 12px;
+  align-items: baseline; flex-wrap: wrap; }
+.gamelist b { font-family: var(--poster); text-transform: uppercase;
+  letter-spacing: .06em; font-size: .95rem; }
+.gamelist .muted { font-size: .88rem; }
+.more { margin: 10px 0 0; font-family: var(--poster); text-transform: uppercase;
+  letter-spacing: .1em; font-size: .8rem; }
+.more a { color: var(--red); text-decoration: none; }
+.more a:hover { text-decoration: underline; }
+
+.key { margin: 44px 0 0; border-top: 2px solid var(--rule-hard);
+  padding-top: 10px; }
+.key summary { font-family: var(--poster); text-transform: uppercase;
+  letter-spacing: .12em; font-size: .78rem; color: var(--ink-2);
+  cursor: pointer; list-style: none; }
+.key summary::-webkit-details-marker { display: none; }
+.key summary::before { content: "+ "; color: var(--red); font-weight: 600; }
+.key[open] summary::before { content: "− "; }
+.key summary:hover { color: var(--ink); }
+.keybody { max-width: 64ch; font-size: .92rem; color: var(--ink-2);
+  padding: 10px 0 4px; }
+.keybody p { margin: 0 0 10px; }
+.keybody b { color: var(--ink); }
+.formula { font-family: var(--mono); font-size: .95rem; color: var(--ink);
+  background: var(--raised); border-left: 3px solid var(--red);
+  padding: 8px 12px; }
+.keytable { width: auto; margin: 4px 0 14px; }
+.keytable td, .keytable th { padding: 4px 18px 4px 0; border-bottom: 0; }
+.keytable td.num { font-family: var(--mono); }
 .unit { color: var(--muted); margin-left: -12px; }
 .chg { font-family: var(--mono); font-size: 1rem; }
 .chg small { color: var(--muted); font-size: .72rem; margin-left: 2px; }

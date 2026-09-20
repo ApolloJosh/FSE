@@ -140,8 +140,25 @@ app.include_router(games_router)
 # /usr/bin/python3, so this is the difference between the app starting on a Mac
 # and not. Optional[] costs nothing and works everywhere.
 @app.get("/", response_class=HTMLResponse)
-def market(request: Request, msg: Optional[str] = None, ok: int = 0):
+def landing(request: Request, msg: Optional[str] = None, ok: int = 0):
+    """The front door. The board is 312 rows of detail and the wrong thing to
+    meet first."""
+    from .games.play import today_summary
+    from .games.puzzles import GAMES, TITLES
+
     user = current_user(request)
+    rows = _market_rows(user)
+    games = {"titles": {g: TITLES[g] for g in GAMES}, "rows": {}, "earned": 0}
+    if user:
+        summary = today_summary(conn(), user["id"], date.today())
+        games["rows"], games["earned"] = summary["rows"], summary["earned"]
+
+    return views.landing_page(
+        rows[:3], _movers_panel(), games, user, len(rows),
+        sum(r["price"] for r in rows), db.latest_date(conn()) or "")
+
+
+def _market_rows(user) -> list[dict]:
     prices = db.latest_prices(conn())
     held = {}
     if user:
@@ -162,9 +179,16 @@ def market(request: Request, msg: Optional[str] = None, ok: int = 0):
             "spark": sparkline(points) if len(points) > 1 else "",
         })
     rows.sort(key=lambda r: r["price"], reverse=True)
-    latest = db.latest_date(conn()) or ""
+    return rows
+
+
+@app.get("/market", response_class=HTMLResponse)
+def market(request: Request, msg: Optional[str] = None, ok: int = 0):
+    user = current_user(request)
+    rows = _market_rows(user)
     return views.market_page(rows, user, views.flash(msg, bool(ok)),
-                             movers=_movers_panel(), as_of=latest)
+                             movers=_movers_panel(),
+                             as_of=db.latest_date(conn()) or "")
 
 
 def _movers_panel() -> str:

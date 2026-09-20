@@ -42,6 +42,21 @@ def connect(path: Path | str = DEFAULT_DB) -> sqlite3.Connection:
 
 def migrate(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA.read_text())
+    _add_missing_columns(conn)
+
+
+# CREATE TABLE IF NOT EXISTS does nothing to a table that already exists, so a
+# new column has to be added by hand or every deployed database is one version
+# behind the schema file with no error to say so.
+ADDED_COLUMNS = [("plays", "paid", "INTEGER NOT NULL DEFAULT 0")]
+
+
+def _add_missing_columns(conn: sqlite3.Connection) -> None:
+    for table, column, decl in ADDED_COLUMNS:
+        have = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in have:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+    conn.commit()
 
 
 @contextmanager

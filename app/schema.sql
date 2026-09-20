@@ -97,6 +97,9 @@ CREATE TABLE IF NOT EXISTS plays (
   fraction      REAL    NOT NULL DEFAULT 0,
   payout        INTEGER NOT NULL DEFAULT 0,
   done          INTEGER NOT NULL DEFAULT 0,
+  -- Set the first time a day's game pays out. A replay clears `done` so it can
+  -- be played again, and leaves this alone, so the second run pays nothing.
+  paid          INTEGER NOT NULL DEFAULT 0,
   at            TEXT    NOT NULL,
   UNIQUE (user_id, game, on_date)
 );

@@ -58,17 +58,29 @@ def save_state(conn: sqlite3.Connection, user_id: int, game: str, on: date,
 
 def finish(conn: sqlite3.Connection, user_id: int, game: str, on: date,
            grade: scoring.Grade, state: dict) -> int:
-    """Record the result and pay. Returns the payout, or 0 if already finished."""
+    """Record the result and pay. Returns the payout, or 0 if already finished.
+
+    A replay is a finish on a day that has already paid. It records the new
+    attempt so the page can show it, and pays nothing - the day is worth
+    exactly one payout however many times it is played.
+    """
     row = get(conn, user_id, game, on)
     if row is None:
         row = start(conn, user_id, game, on)
     if row["done"]:
         return 0
 
+    if row["paid"]:
+        with db.tx(conn):
+            conn.execute(
+                "UPDATE plays SET state = ?, done = 1, at = ? WHERE id = ?",
+                (json.dumps({**state, "replay": True}), db.now(), row["id"]))
+        return 0
+
     with db.tx(conn):
         conn.execute(
-            "UPDATE plays SET state = ?, fraction = ?, payout = ?, done = 1, at = ?"
-            " WHERE id = ?",
+            "UPDATE plays SET state = ?, fraction = ?, payout = ?, done = 1,"
+            " paid = 1, at = ? WHERE id = ?",
             (json.dumps(state), grade.fraction, grade.payout, db.now(), row["id"]))
         conn.execute("UPDATE users SET credits = credits + ? WHERE id = ?",
                      (grade.payout, user_id))
@@ -105,10 +117,14 @@ def solve_rate(conn: sqlite3.Connection, game: str, on: date) -> float | None:
 
 
 def clear_day(conn, user_id: int, on: date) -> int:
-    """Forget a day's plays, so they can be played again. Dev only - see the
-    reset route. The Credits already paid are left in the ledger on purpose:
-    a reset should not also be a refund."""
-    with conn:
-        cur = conn.execute("DELETE FROM plays WHERE user_id = ? AND on_date = ?",
-                           (user_id, on.isoformat()))
+    """Open a day's games up to be played again.
+
+    The row survives with its payout, its fraction and its paid flag intact -
+    what is cleared is the progress. So the leaderboard, the streak and the
+    day's earnings all stay where they were, and the replay pays nothing.
+    """
+    with db.tx(conn):
+        cur = conn.execute(
+            "UPDATE plays SET done = 0, state = '{}' WHERE user_id = ? AND on_date = ?",
+            (user_id, on.isoformat()))
     return cur.rowcount

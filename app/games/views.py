@@ -42,7 +42,8 @@ def hub(summary: dict, unavailable: dict[str, str], user, on: date,
         reset = f"""<form method="post" action="play/reset" class="reset">
   <input type="hidden" name="csrf" value="{esc(csrf)}">
   <button class="btn ghost">Play today's games again</button>
-  <span class="muted">Local only. Credits already earned are kept.</span>
+  <span class="muted">For practice. You keep what you earned, and a replay
+  pays nothing.</span>
 </form>"""
 
     wt, wb = TITLES[WEEKLY]

@@ -300,6 +300,11 @@ that prices the market — so playing them teaches you to read it.
 Plus a CR 2.50 perfect-day bonus and CR 0.50 per streak day, capped at 5.00. A
 perfect day with the weekend puzzle tops out around CR 16.00.
 
+Anyone can reopen the day's games from the bottom of `/play`. A replay pays
+nothing — the row keeps its payout and its `paid` flag, so the day is worth
+exactly one payout however many times it is played, and the streak counts
+`paid` rather than `done` so practising never costs you one.
+
 **A fifth game, Critics vs Crowd, is deliberately absent.** It needs the Rotten
 Tomatoes audience score, which is not licensable — see the data table above. The
 slot stays empty rather than being filled with a proxy.
@@ -360,6 +365,18 @@ films are not trying to make money, and the engine now knows the difference.
 The modifier ramps rather than steps, so nothing hinges on a film scoring 39
 instead of 41, and a film with no reviews on file is judged neither way.
 
+
+## The pages
+
+`/` is a front door: what the place is, the three things you do, today's games,
+top billing and the movers. `/market` is the whole board. 312 rows of detail is
+the wrong thing to meet first.
+
+Every page carries a key explaining **CP** and **CR**, because the why-it-moved
+panel shows an event as +1,300 against a price of CR 70, which reads as broken
+arithmetic until you know there is a curve between them. Every figure in that
+key is computed from the live constants, so it cannot drift from what the
+engine does.
 
 ## The look
 
