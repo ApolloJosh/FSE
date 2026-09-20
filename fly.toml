@@ -1,34 +1,38 @@
-# Rename this app before deploying: the name must be unique across fly.io.
-app = "film-stock-exchange"
-primary_region = "iad"
+# fly.toml app configuration file generated for film-stock-exchange on 2026-09-19T18:58:51-05:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'film-stock-exchange'
+primary_region = 'iad'
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = 'Dockerfile'
 
 [env]
-  FSX_DB = "/data/market.db"
-  FSX_ENV = "production"
+  FSX_DB = '/data/market.db'
+  FSX_ENV = 'production'
 
 # SQLite lives on the volume, never in the image - otherwise every deploy
 # wipes every portfolio.
 [[mounts]]
-  source = "market_data"
-  destination = "/data"
+  source = 'market_data'
+  destination = '/data'
 
 [http_service]
   internal_port = 8000
   force_https = true
-  auto_stop_machines = "suspend"
+  auto_stop_machines = 'suspend'
   auto_start_machines = true
   min_machines_running = 0
 
-[[http_service.checks]]
-  grace_period = "15s"
-  interval = "30s"
-  timeout = "5s"
-  method = "GET"
-  path = "/healthz"
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '15s'
+    method = 'GET'
+    path = '/healthz'
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "512mb"
+  size = 'shared-cpu-1x'
+  memory = '512mb'

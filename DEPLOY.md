@@ -78,16 +78,54 @@ curl https://YOUR-APP-NAME.fly.dev/healthz
 ## Sign-in
 
 OAuth apps need the deployed hostname, which does not exist until after the
-first deploy — so do this last.
+first deploy — so do this last. **This app is deployed at
+`https://film-stock-exchange.fly.dev`**, so that is the host in both URLs
+below.
 
-- **GitHub** → Settings → Developer settings → OAuth Apps → New.
-  Callback: `https://YOUR-APP-NAME.fly.dev/auth/github/callback`
-- **Google** → Cloud Console → Credentials → OAuth client ID (Web).
-  Redirect URI: `https://YOUR-APP-NAME.fly.dev/auth/google/callback`
+Until at least one provider is configured, `/signin` says so and nobody can
+sign in: `FSX_ENV=production` turns the local test player off, which is the
+point of it. The market, the stock pages and the leaderboards are all public
+and work already.
+
+GitHub takes about two minutes. Google needs a consent screen, scopes and a
+publishing status, and is worth leaving until you actually want it — one
+provider is enough to open the doors.
+
+### GitHub
+
+1. https://github.com/settings/developers → **OAuth Apps** → **New OAuth App**
+2. Application name: `Film Stock Exchange`
+3. Homepage URL: `https://film-stock-exchange.fly.dev`
+4. Authorization callback URL:
+   `https://film-stock-exchange.fly.dev/auth/github/callback`
+5. **Register application**, then **Generate a new client secret** and copy it
+   before leaving the page — GitHub shows it once.
+
+Then, in your own terminal (the secret never goes anywhere else):
 
 ```bash
-fly secrets set GITHUB_CLIENT_ID=... GITHUB_CLIENT_SECRET=...
-fly secrets set GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=...
+fly secrets set GITHUB_CLIENT_ID=PASTE_THE_CLIENT_ID
+```
+```bash
+fly secrets set GITHUB_CLIENT_SECRET=PASTE_THE_SECRET
+```
+
+Setting a secret restarts the app on its own. Give it a few seconds, then load
+`https://film-stock-exchange.fly.dev/signin` — "Continue with Github" should be
+there.
+
+### Google, when you want it
+
+Cloud Console → Credentials → **Create credentials** → OAuth client ID → Web
+application. Authorised redirect URI:
+`https://film-stock-exchange.fly.dev/auth/google/callback`. You will also have
+to fill in the OAuth consent screen before it will issue credentials.
+
+```bash
+fly secrets set GOOGLE_CLIENT_ID=PASTE_THE_CLIENT_ID
+```
+```bash
+fly secrets set GOOGLE_CLIENT_SECRET=PASTE_THE_SECRET
 ```
 
 Either pair is enough; the sign-in page only offers the buttons that are
