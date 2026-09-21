@@ -8,7 +8,7 @@ from datetime import date
 from fsx.site import esc, money
 
 from app import db
-from app.views import chrome, flash
+from app.views import chrome, flash, name_picker
 
 from .puzzles import GAMES, TITLES, WEEKLY, Puzzle
 from .scoring import DAILY_GAMES, PAYOUTS
@@ -170,30 +170,58 @@ def play_page(game: str, puzzle: Puzzle, row, state: dict, csrf: str,
     body = f'<p class="lede">{esc(blurb)}</p><p class="muted">{esc(puzzle.note)}</p>'
 
     if game == "ladder":
+        from .scoring import payout_for
+
+        total = puzzle.max_guesses
         shown = int(state.get("rungs", 1))
-        rungs = puzzle.public["rungs"][:shown]
-        listed = "".join(
-            f'<li><span class="num">{i}</span> {esc(r["title"])} '
-            f'<span class="muted">({r["year"]})</span></li>'
-            for i, r in enumerate(rungs, 1))
-        options = "".join(f'<option value="{esc(o)}">{esc(o)}</option>'
-                          for o in puzzle.public["options"])
-        left = puzzle.max_guesses - shown
-        more = (f'<button class="btn ghost" name="action" value="reveal">'
-                f'Show another film</button>' if left else '')
-        body = f"""<p class="lede">Six films from one person's filmography, the
-most obscure first. Name them from as few as possible.</p>
+        tried = list(state.get("wrong") or [])
+        films = puzzle.public["rungs"]
+
+        # A ladder read top-down was the whole confusion: the list grew
+        # downwards while the payout fell, so "climbing" meant doing worse.
+        # Drawn as a ladder - hardest and richest at the top, easiest and
+        # cheapest at the bottom - a step down is obviously a step down.
+        steps = ""
+        for level in range(total, 0, -1):
+            revealed = total - level + 1        # films you have at this rung
+            pays = payout_for("ladder", (total - revealed + 1) / total)
+            if revealed < shown:
+                mark, film = "passed", films[revealed - 1]
+                clue = f'{esc(film["title"])} <span class="muted">({film["year"]})</span>'
+            elif revealed == shown:
+                mark, film = "here", films[revealed - 1]
+                clue = f'{esc(film["title"])} <span class="muted">({film["year"]})</span>'
+            else:
+                mark, clue = "ahead", '<span class="muted">one more film</span>'
+            steps += (f'<li class="rung {mark}"><span class="level">{level}</span>'
+                      f'<span class="clue">{clue}</span>'
+                      f'<span class="pays">{money(db.credits(pays))}</span></li>')
+
+        choices = "".join(
+            f'<label class="choice{" spent" if o in tried else ""}">'
+            f'<input type="radio" name="answer" value="{esc(o)}" required'
+            f'{" disabled" if o in tried else ""}><span>{esc(o)}</span></label>'
+            for o in puzzle.public["options"])
+
+        left = total - shown
+        step_down = (f'<button class="btn ghost" name="action" value="reveal">'
+                     f'Step down for another film</button>' if left else '')
+        where = (f"You are on rung {total - shown + 1} of {total}, "
+                 f"worth {money(db.credits(payout_for('ladder', (total - shown + 1) / total)))}.")
+        where += (" A wrong name costs you a rung." if left else
+                  " Bottom rung: this is the last guess.")
+
+        body = f"""<p class="lede">One person's filmography, most obscure film
+first. Name them from as high up the ladder as you can — every extra film you
+take drops you a rung and pays less.</p>
 <div class="trade">
-<ol class="rungs">{listed}</ol>
+<ol class="ladder">{steps}</ol>
 {form_open}
-  <div><label for="answer">Whose filmography is this?</label>
-    <select id="answer" name="answer" style="width:18rem">{options}</select></div>
-  <button class="btn" name="action" value="guess">Lock it in</button>{more}
+  <fieldset><legend>Whose filmography is this?</legend>
+  <div class="choices">{choices}</div></fieldset>
+  <button class="btn" name="action" value="guess">Lock it in</button>{step_down}
 </form>
-<p class="muted">{shown} of {puzzle.max_guesses} films shown.
-{"Answering now pays the most." if shown == 1 else
- f"Each one you show pays less; {left} left." if left else
- "All six are out - this is the last chance and the smallest payout."}</p>
+<p class="muted">{where}</p>
 </div>"""
 
     elif game == "cast-gap":
@@ -242,19 +270,18 @@ most obscure first. Name them from as few as possible.</p>
         steps += ('<li class="link pending"><span class="via muted">?</span></li>'
                   f'<li class="who target">{esc(pub["to"])}</li>')
 
-        options = "".join(f'<option value="{esc(n)}">' for n in pub["roster"])
         undo = ('<button class="btn ghost" name="action" value="undo">Undo</button>'
                 if len(names) > 1 else '')
+        picker = name_picker(
+            "answer",
+            f'Who links {esc(names[-1] if names else pub["from"])} onward?',
+            list(pub["roster"]))
         body = f"""<p class="lede">Connect the two through people they have
 actually shared a film with — one name at a time.</p>
 <div class="trade">
 <ol class="chain">{steps}</ol>
-<datalist id="roster">{options}</datalist>
 {form_open}
-  <div><label for="answer">Who links
-    {esc(names[-1] if names else pub["from"])} onward?</label>
-    <input id="answer" name="answer" list="roster" autocomplete="off"
-           style="width:18rem" required></div>
+  {picker}
   <button class="btn" name="action" value="link">Lock it in</button>{undo}
   <button class="btn ghost" name="action" value="giveup">Give up</button>
 </form>

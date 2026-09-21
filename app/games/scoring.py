@@ -60,14 +60,18 @@ def grade_six_degrees(puzzle, hops: int, misses: int = 0,
     return Grade(fraction, payout_for("six-degrees", fraction), detail, over == 0)
 
 
-def grade_ladder(puzzle, rungs_used: int, correct: bool) -> Grade:
+def grade_ladder(puzzle, films_used: int, correct: bool) -> Grade:
+    """`films_used` is how many films were on the table when the name was
+    locked in. One film is the top rung; all of them is the bottom."""
     total = puzzle.max_guesses
+    rung = total - films_used + 1
     if not correct:
         return Grade(0.0, payout_for("ladder", 0.0),
-                     f"It was {puzzle.answer['name']}.")
-    fraction = (total - rungs_used + 1) / total
+                     f"Off the bottom rung. It was {puzzle.answer['name']}.")
+    fraction = rung / total
     return Grade(fraction, payout_for("ladder", fraction),
-                 f"Named on rung {rungs_used} of {total}.", True)
+                 f"Named from rung {rung} of {total}, on {films_used} "
+                 f"film{'' if films_used == 1 else 's'}.", True)
 
 
 def grade_box_office(puzzle, submitted: list[str]) -> Grade:

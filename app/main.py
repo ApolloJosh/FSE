@@ -122,8 +122,9 @@ def _static_dir() -> Path:
     directory = Path(__file__).with_name("static")
     directory.mkdir(exist_ok=True)
     (directory / "style.css").write_text(views.APP_STYLE)
-    from fsx.site import CHART_JS
+    from fsx.site import CHART_JS, PICKER_JS
     (directory / "chart.js").write_text(CHART_JS)
+    (directory / "picker.js").write_text(PICKER_JS)
     return directory
 
 
@@ -332,7 +333,9 @@ def stock(request: Request, slug: str, msg: Optional[str] = None, ok: int = 0,
         f'<tr data-event="{ident}" data-date="{c.event_date.isoformat()}"'
         f' data-cp="{v:.1f}" tabindex="0">'
         f'<td class="date">{c.event_date.isoformat()}</td>'
-        f'<td>{esc(c.title)}</td>'
+        f'<td class="film"><div class="filmcell">'
+        f'{"" if c.is_award else views.poster_thumb(c.title, c.event_date.year)}'
+        f'<span>{esc(c.title)}</span></div></td>'
         f'<td class="muted">{esc(c.role)}</td>'
         f'<td class="src">{esc(c.kind)}</td>'
         f'<td class="num {"up" if v > 0 else "down"}">{v:+,.0f}</td></tr>'
@@ -347,12 +350,15 @@ def stock(request: Request, slug: str, msg: Optional[str] = None, ok: int = 0,
     body = f"""
 <nav class="crumb"><a href="../">← The market</a></nav>
 <header class="stockhead">
+  {views.headshot(row['name'], match.tmdb_id if match else None, "w342")}
+  <div class="stockhead-text">
   <p class="over">{"Directing" if row["is_director"] else "Starring"}</p>
   <h1>{esc(row['name'])}</h1>
   <div class="quote">
     <span class="big">{money(db.credits(row['price']))}</span><span class="unit">CR</span>
     <span class="chg {trend_class(change)}">{pct(change)} <small>30d</small></span>
     <span class="pill">{esc(row['tier'])}</span>
+  </div>
   </div>
 </header>
 {views.flash(msg, bool(ok))}

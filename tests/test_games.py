@@ -288,3 +288,45 @@ def test_the_slate_reveals_the_best_slate_it_was_measured_against():
     answer = generate("slate", DAY, SNAPSHOT).answer
     assert len(answer["best"]) == 5
     assert answer["best_spend"] <= answer["budget"]
+
+
+def test_a_wrong_name_on_the_ladder_costs_a_rung_not_the_day():
+    """Guessing once and being told "done" was the game working as written and
+    nobody could have guessed that from looking at it."""
+    from app.games.scoring import grade_ladder
+
+    class P:
+        max_guesses = 6
+        answer = {"name": "Someone Else"}
+
+    top = grade_ladder(P(), 1, True)
+    bottom = grade_ladder(P(), 6, True)
+    assert top.payout > bottom.payout
+    assert "rung 6" in top.detail and "rung 1" in bottom.detail
+    assert grade_ladder(P(), 6, False).payout < bottom.payout
+
+
+def test_the_ladder_is_drawn_top_down_hardest_first():
+    """Josh: the bottom rung should be the easy one. It is now: rung 6 is one
+    obscure film and the biggest payout, rung 1 is all six and the smallest."""
+    import re
+    from datetime import date
+
+    from app.games import views
+    from app.games.puzzles import Puzzle
+
+    puzzle = Puzzle(
+        game="ladder", on=date.today(),
+        public={"rungs": [{"title": f"Film {i}", "year": 2000 + i}
+                          for i in range(1, 7)],
+                "options": ["Ann Lee", "Bo Chen"]},
+        answer={"who": 1, "name": "Ann Lee"},
+        max_guesses=6, note="")
+    html = views.play_page("ladder", puzzle, None, {"rungs": 1}, "csrf", None)
+
+    levels = re.findall(r'class="level">(\d)<', html)
+    assert levels == ["6", "5", "4", "3", "2", "1"], levels
+    marks = re.findall(r'class="rung (\w+)"', html)
+    assert marks[0] == "here", "the player starts at the top"
+    assert set(marks[1:]) == {"ahead"}
+    assert "You are on rung 6 of 6" in html

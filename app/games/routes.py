@@ -135,7 +135,19 @@ async def submit(request: Request, game: str, csrf: str = Form(...),
 
     if game == "ladder":
         rungs = int(state.get("rungs", 1))
-        correct = (form.get("answer") or "").strip() == puzzle.answer["name"]
+        answer = (form.get("answer") or "").strip()
+        correct = answer == puzzle.answer["name"]
+        # A single wrong name used to end the day, with no warning that it
+        # would - you guessed once and the game said "done". A miss now costs
+        # a rung, the same as asking for another film, and only a miss on the
+        # bottom rung ends it.
+        if not correct and rungs < puzzle.max_guesses:
+            state["rungs"] = rungs + 1
+            state["wrong"] = (state.get("wrong") or []) + [answer]
+            play.save_state(conn, user_id, game, on, state)
+            return RedirectResponse(
+                f"/play/{game}?msg=Not {answer}. Down a rung, and another film."
+                "&ok=0", status_code=303)
         grade = scoring.grade_ladder(puzzle, rungs, correct)
 
     elif game == "cast-gap":

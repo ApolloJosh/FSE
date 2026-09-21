@@ -11,7 +11,7 @@ from fsx.site import (FONT_LINK, STYLE, THEME_BOOT, THEME_BUTTON, esc, key_block
                       line_chart, money, pct, shell as static_shell, sparkline,
                       trend_class)
 
-from . import db
+from . import db, images
 
 APP_STYLE = STYLE + """
 .authbar { display: flex; align-items: center; gap: 14px; font-size: .9rem; }
@@ -121,14 +121,101 @@ tr.hidden { display: none; }
 .reveal .total td { border-top: 2px solid var(--rule); font-weight: 600; }
 .reset { display: flex; gap: 12px; align-items: center; margin: 26px 0 0;
   padding-top: 18px; border-top: 1px dashed var(--rule); }
+/* ---------------------------------------------------------------- pictures
+   The index covers 96% of credited films and all but two of the roster, so
+   the missing ones are a designed state rather than a broken image: the same
+   card, the same size, initials instead of a face and a blank frame instead
+   of a poster. A page of them still lines up. */
+.face { display: block; object-fit: cover; border: 1px solid var(--rule-hard);
+  background: var(--raised); }
+.face.none { display: flex; align-items: center; justify-content: center;
+  font-family: var(--poster); letter-spacing: .06em; color: var(--ink-2);
+  background: var(--raised); }
+.poster { display: block; object-fit: cover; border: 1px solid var(--rule);
+  background: var(--raised); }
+.poster.none { display: block; border: 1px dashed var(--rule); }
+
+.stockhead { display: flex; gap: 20px; align-items: flex-start;
+  padding: 6px 0 4px; }
+.stockhead .face { width: 120px; height: 180px; flex: none; }
+.stockhead-text { min-width: 0; flex: 1; }
+
+.sheet .face { width: 100%; height: 190px; margin: 6px 0 10px; }
+.sheet .face.none { font-size: 1.6rem; }
+
+.quote-card li a { display: flex; align-items: center; gap: 9px; }
+.quote-card .face { width: 30px; height: 30px; border-radius: 50%;
+  flex: none; font-size: .62rem; }
+
+/* The flex belongs on a wrapper, not the cell: a td with display:flex leaves
+   table layout and takes the row's borders with it. */
+.reasons .filmcell { display: flex; align-items: center; gap: 10px; }
+.reasons .poster, .reasons .poster.none { width: 32px; height: 48px; flex: none; }
+
+.creditblock .tmdb { font-size: .72rem; color: var(--ink-2); }
+
+@media (max-width: 620px) {
+  .stockhead { gap: 14px; }
+  .stockhead .face { width: 84px; height: 126px; }
+  .sheet .face { height: 150px; }
+  .reasons .poster, .reasons .poster.none { width: 26px; height: 39px; }
+}
+
+/* ------------------------------------------------------------- name picker */
+.picker { position: relative; }
+.picker input { width: min(22rem, 100%); }
+.picker-list { position: absolute; z-index: 30; left: 0; right: 0;
+  max-width: min(22rem, 100%); margin: 2px 0 0; padding: 0; list-style: none;
+  max-height: 46vh; overflow-y: auto; background: var(--raised);
+  border: 1px solid var(--rule-hard);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .18); }
+.picker-list li + li { border-top: 1px solid var(--rule); }
+.picker-list button { display: block; width: 100%; min-height: 46px;
+  padding: 11px 14px; text-align: left; font: inherit; font-size: 1rem;
+  color: var(--ink); background: none; border: 0; cursor: pointer; }
+.picker-list button:hover, .picker-list button:focus {
+  background: var(--rule-hard); color: var(--surface); outline: none; }
+
+/* -------------------------------------------------------------- the ladder
+   Drawn as a ladder rather than a growing list. The top rung is the one film
+   and the big payout; each step down hands you another film and takes money
+   off. A list that grew downwards while the prize fell was the whole reason
+   nobody could tell which way was up. */
+.ladder { margin: 0 0 18px; padding: 0; list-style: none;
+  border: 2px solid var(--rule-hard); background: var(--raised); }
+.ladder .rung { display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-bottom: 1px solid var(--rule); }
+.ladder .rung:last-child { border-bottom: 0; }
+.ladder .level { font-family: var(--poster); font-size: .95rem; width: 1.5rem;
+  text-align: center; color: var(--muted); flex: none; }
+.ladder .clue { flex: 1; min-width: 0; }
+.ladder .pays { font-family: var(--mono); font-size: .85rem; color: var(--muted);
+  flex: none; }
+.ladder .rung.here { background: var(--rule-hard); color: var(--surface); }
+.ladder .rung.here .level, .ladder .rung.here .pays,
+.ladder .rung.here .muted { color: var(--surface); opacity: .85; }
+.ladder .rung.ahead { opacity: .5; }
+.ladder .rung.passed .clue { text-decoration: none; }
+.choice.spent { opacity: .45; text-decoration: line-through; }
+.trade fieldset { border: 0; margin: 0; padding: 0; }
+.trade fieldset legend { font-family: var(--poster); font-size: .72rem;
+  letter-spacing: .18em; text-transform: uppercase; color: var(--ink-2);
+  padding: 0; margin: 0 0 6px; }
+
+/* .trade input is 7rem wide for the shares box, which also made every radio
+   and checkbox 7rem wide - a hundred pixels of nothing between the dot and
+   the name it belongs to. */
+.choice input[type="radio"], .choice input[type="checkbox"] { width: auto; }
 """
 
 
 def chrome(title: str, body: str, user: sqlite3.Row | None, depth: int = 0) -> str:
     """The shell, with an auth bar the static Phase 1 pages do not have."""
     up = "../" * depth
-    # "Market" is spelled out even though the wordmark goes to the same place.
-    # Nobody reads a wordmark as a way back.
+    # An empty href is the current page, not the site root, so on /market and
+    # /play the wordmark was a link that reloaded whatever you were already
+    # looking at. "./" resolves to the directory, which is home from any depth.
+    home = up or "./"
     market = f'<a href="{up}market">Market</a>'
     if user:
         right = (f'<span class="balance">CR {money(db.credits(user["credits"]))}</span>'
@@ -153,7 +240,7 @@ def chrome(title: str, body: str, user: sqlite3.Row | None, depth: int = 0) -> s
 {FONT_LINK}{THEME_BOOT}
 </head><body>
 <header class="site">
-  <a class="wordmark" href="{up}">Film Stock Exchange</a>
+  <a class="wordmark" href="{home}">Film Stock Exchange</a>
   <nav class="authbar">{right}</nav>
 </header>
 <main>{body}
@@ -163,6 +250,7 @@ def chrome(title: str, body: str, user: sqlite3.Row | None, depth: int = 0) -> s
      No real money, no cash-out, nothing to win but bragging rights.</p>
 </footer>
 <script src="{up}static/chart.js" defer></script>
+<script src="{up}static/picker.js" defer></script>
 </body></html>"""
 
 
@@ -186,13 +274,74 @@ def movers_panel(boards: list[tuple[str, str, list[dict]]]) -> str:
         if not entries:
             continue
         items = "".join(f"""<li>
-  <a href="stock/{esc(e['slug'])}">{esc(e['name'])}</a>
+  <a href="stock/{esc(e['slug'])}">
+    {headshot(e['name'], e.get('tmdb_id'))}{esc(e['name'])}</a>
   <span class="mono">{money(e['price'])}</span>
   <span class="{trend_class(e['change'])}">{pct(e['change'])}</span>
 </li>""" for e in entries)
         cards += (f'<section class="quote-card"><h3>{esc(title)}</h3>'
                   f'<p class="note">{esc(blurb)}</p><ol>{items}</ol></section>')
     return f'<div class="quotes">{cards}</div>' if cards else ""
+
+
+
+
+def name_picker(field: str, label: str, names: list[str],
+                placeholder: str = "Type a few letters") -> str:
+    """A text field with a list of names under it.
+
+    This was a <datalist>, which is a dropdown on a desktop and very nearly
+    nothing on a phone - so on a phone the game became "spell Mahershala Ali
+    from memory". The list is plain elements at thumb size; with the script
+    off, the input still takes a typed name, which is what the server checks.
+    """
+    import json as _json
+
+    return f"""<div class="picker" data-picker>
+  <label for="{esc(field)}">{label}</label>
+  <input id="{esc(field)}" name="{esc(field)}" type="text" required
+         autocomplete="off" autocapitalize="words" autocorrect="off"
+         spellcheck="false" enterkeyhint="done"
+         placeholder="{esc(placeholder)}" role="combobox"
+         aria-autocomplete="list" aria-expanded="false"
+         aria-controls="{esc(field)}-list">
+  <ul class="picker-list" id="{esc(field)}-list" role="listbox" hidden></ul>
+  <script type="application/json" class="picker-names">{_json.dumps(names)}</script>
+</div>"""
+
+
+def headshot(name: str, tmdb_id=None, size: str = "") -> str:
+    """A face, or the space where one would be.
+
+    Every image here is someone else's: the index is TMDB's, the pictures are
+    served from TMDB, and neither is guaranteed to have one. So the absence is
+    designed rather than patched - initials on the same warm card, at the same
+    size, so a row with a face and a row without are the same shape.
+    """
+    initials = "".join(part[0] for part in name.split()[:2]).upper()
+    src = images.face(name, tmdb_id, size or images.FACE_SIZE)
+    if not src:
+        return f'<span class="face none" aria-hidden="true">{esc(initials)}</span>'
+    # The pictures are TMDB's and served from TMDB, so they can be missing,
+    # moved or blocked on the player's network. On error the img becomes the
+    # same initials card the index-miss case renders, rather than a broken
+    # glyph in a frame.
+    fallback = f'<span class="face none" aria-hidden="true">{esc(initials)}</span>'
+    return (f'<img class="face" src="{esc(src)}" alt="" loading="lazy" '
+            f'decoding="async" width="80" height="120" '
+            f'data-fallback="{esc(fallback)}" '
+            f'onerror="this.outerHTML=this.dataset.fallback">')
+
+
+def poster_thumb(title: str, year, size: str = "") -> str:
+    src = images.poster(title, year, size or images.POSTER_TINY)
+    if not src:
+        return '<span class="poster none" aria-hidden="true"></span>'
+    fallback = '<span class="poster none" aria-hidden="true"></span>'
+    return (f'<img class="poster" src="{esc(src)}" alt="" loading="lazy" '
+            f'decoding="async" width="46" height="69" '
+            f'data-fallback="{esc(fallback)}" '
+            f'onerror="this.outerHTML=this.dataset.fallback">')
 
 
 def masthead(listed: int, market_value: float, as_of: str) -> str:
@@ -216,6 +365,7 @@ def billboard(rows: list[dict]) -> str:
     for slot, row in zip(("Starring", "And", "With"), rows):
         cards += f"""<a class="sheet" href="stock/{esc(row['slug'])}">
   <span class="slot">{slot}</span>
+  {headshot(row['name'], row.get('tmdb_id'))}
   <div class="who">{esc(row['name'])}</div>
   <div class="figure"><b>{money(row['price'])}</b>
     <span class="{trend_class(row['change'])}">{pct(row['change'])}</span>
@@ -290,6 +440,8 @@ def credit_block(rows: list[dict], tiers: dict[str, int]) -> str:
        <b>{directors}</b> behind it</div>
   <div>Film and credit data TMDB · Reviews OMDb and Wikidata ·
        Awards Wikidata · Budgets and grosses Wikipedia</div>
+  <div class="tmdb">Posters and photographs supplied by TMDB. This product uses
+       the TMDB API but is not endorsed or certified by TMDB.</div>
 </section>"""
 
 
@@ -399,4 +551,5 @@ def trade_panel(slug: str, price: int, user: sqlite3.Row | None,
   <span class="muted">You can afford {affordable:,} at {money(db.credits(price))} plus the 1.5% fee.</span>
 </form>
 {held}{sell_note}
-</div>"""
+</div>
+"""

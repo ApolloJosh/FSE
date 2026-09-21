@@ -860,3 +860,88 @@ def build(snapshot: Path, out_dir: Path, years: int = 5) -> dict:
     (out_dir / ".nojekyll").write_text("")
 
     return {"people": len(people), "out": out_dir, "fetched": fetched}
+
+# A name picker that works on a phone.
+#
+# The roster went into a <datalist>, which desktop Chrome renders as a tidy
+# dropdown and iOS Safari renders as nothing very much - so on a phone the
+# game was "type all of Mahershala Ali correctly, from memory". This is the
+# same input with a list underneath it: real elements, real tap targets, and
+# if the script never runs the input still takes a typed name, which is what
+# the server was validating all along.
+PICKER_JS = """
+(function () {
+  var pickers = document.querySelectorAll('[data-picker]');
+  Array.prototype.forEach.call(pickers, function (box) {
+    var input = box.querySelector('input');
+    var list = box.querySelector('.picker-list');
+    var store = box.querySelector('.picker-names');
+    if (!input || !list || !store) return;
+    var names = [];
+    try { names = JSON.parse(store.textContent) || []; } catch (e) { return; }
+    var active = -1;
+
+    function close() {
+      list.hidden = true; list.innerHTML = ''; active = -1;
+      input.setAttribute('aria-expanded', 'false');
+    }
+
+    function choose(name) {
+      input.value = name;
+      close();
+      input.focus();
+    }
+
+    function render(matches) {
+      list.innerHTML = '';
+      matches.forEach(function (name, i) {
+        var li = document.createElement('li');
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = name;
+        b.addEventListener('click', function () { choose(name); });
+        li.appendChild(b);
+        list.appendChild(li);
+      });
+      list.hidden = matches.length === 0;
+      input.setAttribute('aria-expanded', matches.length ? 'true' : 'false');
+      active = -1;
+    }
+
+    function search() {
+      var q = input.value.trim().toLowerCase();
+      if (q.length < 2) { close(); return; }
+      var starts = [], holds = [];
+      for (var i = 0; i < names.length; i++) {
+        var low = names[i].toLowerCase();
+        if (low.indexOf(q) === 0) starts.push(names[i]);
+        else if (low.indexOf(q) > -1) holds.push(names[i]);
+        if (starts.length >= 8) break;
+      }
+      render(starts.concat(holds).slice(0, 8));
+    }
+
+    function move(step) {
+      var buttons = list.querySelectorAll('button');
+      if (!buttons.length) return;
+      active = (active + step + buttons.length) % buttons.length;
+      buttons[active].focus();
+    }
+
+    input.addEventListener('input', search);
+    input.addEventListener('focus', search);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
+      else if (e.key === 'Escape') close();
+    });
+    list.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
+      else if (e.key === 'Escape') { close(); input.focus(); }
+    });
+    document.addEventListener('click', function (e) {
+      if (!box.contains(e.target)) close();
+    });
+  });
+})();
+"""

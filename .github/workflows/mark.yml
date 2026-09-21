@@ -66,6 +66,13 @@ jobs:
         if: ${{ !inputs.skip_refresh && env.TMDB_READ_ACCESS_TOKEN != '' }}
         run: python -m fsx.cli refresh --snapshot data/people.json
 
+      # The cache is restored above, so this costs no API calls: it re-reads
+      # the payloads the refresh already downloaded and pulls the poster and
+      # headshot paths out of them.
+      - name: Rebuild the image index
+        if: ${{ !inputs.skip_refresh }}
+        run: python scripts/build_images.py
+
       - name: Ship the snapshot
         if: ${{ !inputs.skip_refresh }}
         run: |
@@ -92,12 +99,12 @@ jobs:
       - name: Commit the snapshot
         if: ${{ !inputs.skip_refresh }}
         run: |
-          if git diff --quiet -- data/people.json; then
+          if git diff --quiet -- data/people.json data/images.json; then
             echo "No change to the snapshot."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/people.json
+          git add data/people.json data/images.json
           git commit -m "Nightly refresh: new credits and awards"
           git push

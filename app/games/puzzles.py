@@ -125,7 +125,7 @@ def ladder(corpus: Corpus, on: date) -> Puzzle:
                 "options": options},
         answer={"who": who, "name": corpus.name(who)},
         max_guesses=len(rungs),
-        note="Each rung you reveal costs you points.")
+        note="Top rung pays most. A wrong name costs a rung, same as asking for another film.")
 
 
 # ------------------------------------------------------------------ box office
@@ -247,7 +247,7 @@ GENERATORS = {
 
 TITLES = {
     "six-degrees": ("Six Degrees", "Connect two actors through films they shared."),
-    "ladder": ("The Ladder", "Six films, obscurest first. Name the actor."),
+    "ladder": ("The Ladder", "Start at the top with one obscure film. Every extra film drops you a rung."),
     "box-office": ("Box Office Blind", "Rank five films by worldwide gross."),
     "cast-gap": ("Cast Gap", "One name is missing from the billing."),
     "slate": ("The Slate", "Build the highest-grossing cast inside a budget."),

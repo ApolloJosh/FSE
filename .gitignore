@@ -17,3 +17,5 @@ site/
 # written at import by app.main._static_dir, from app/views.py
 app/static/
 venv/
+.shots/
+.fuse_hidden*

@@ -755,3 +755,32 @@ def test_the_nightly_job_closes_a_gap_it_finds(client, tmp_path):
     assert filled > 20, f"only filled {filled} days of a 400-day hole"
     newest = date.fromisoformat(db.latest_date(conn))
     assert (date.today() - newest).days <= 14
+
+
+def test_the_wordmark_goes_home_from_every_page(client):
+    """href="" is the current page, not the site root, so on /market and /play
+    the wordmark was a link that reloaded what you were already looking at."""
+    import re
+
+    c, _ = client
+    for path in ("/", "/market", "/play", "/about", "/leaderboards",
+                 "/stock/mid"):
+        page = c.get(path)
+        assert page.status_code in (200, 303), path
+        if page.status_code != 200:
+            continue
+        href = re.search(r'<a class="wordmark" href="([^"]*)"', page.text)
+        assert href, f"{path} has no wordmark"
+        assert href.group(1), f"{path} wordmark links to itself"
+
+
+def test_the_name_picker_is_not_a_datalist(client):
+    """A <datalist> is a dropdown on a desktop and very nearly nothing on a
+    phone, which made Six Degrees a spelling test on the device most people
+    play on."""
+    from app.views import name_picker
+
+    html = name_picker("answer", "Who?", ["Ann Lee", "Bo Chen"])
+    assert "<datalist" not in html
+    assert 'data-picker' in html and 'role="listbox"' in html
+    assert "Ann Lee" in html
