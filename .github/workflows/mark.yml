@@ -82,8 +82,14 @@ jobs:
         if: ${{ !inputs.skip_refresh && steps.refresh.outcome == 'success' }}
         run: python scripts/build_images.py
 
+      # Not gated on the refresh. A failed refresh leaves data/people.json
+      # exactly as checked out - complete, just without tonight's additions -
+      # and the deployed volume can be months behind it. Withholding it means
+      # a broken refresh also freezes the roster on the server, which is how
+      # 312 names stayed live while the repo had 490. The endpoint refuses a
+      # snapshot that has lost most of the roster, so a bad file cannot land.
       - name: Ship the snapshot
-        if: ${{ !inputs.skip_refresh && steps.refresh.outcome == 'success' }}
+        if: ${{ !inputs.skip_refresh }}
         run: |
           code=$(curl -sS -o response.json -w '%{http_code}' -X POST \
             --max-time 300 --retry 3 --retry-delay 20 --retry-connrefused \
