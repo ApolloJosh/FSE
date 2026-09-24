@@ -54,15 +54,24 @@ jobs:
 
       # Permanent by design for films, dated for filmographies - so this is
       # what keeps the nightly check to one call per person instead of a
-      # cold refetch of everything.
+      # cold refetch of everything. Restore and save are separate steps
+      # because actions/cache only saves when the job succeeds, and a job
+      # that fails on the refresh is exactly the one whose cache is worth
+      # keeping - otherwise every retry starts cold and fails the same way.
       - name: Restore the fetch cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: .cache
           key: fsx-fetch-${{ github.run_id }}
           restore-keys: fsx-fetch-
 
+      # Prices are a function of the date: yesterday's snapshot produces
+      # today's prices whether or not anyone has released anything. So a bad
+      # night at TMDB must not stop the repricing - the market being four
+      # years stale was worse than the market missing a week of new credits.
       - name: Look for new credits
+        id: refresh
+        continue-on-error: true
         if: ${{ !inputs.skip_refresh && env.TMDB_READ_ACCESS_TOKEN != '' }}
         run: python -m fsx.cli refresh --snapshot data/people.json
 
@@ -70,11 +79,11 @@ jobs:
       # the payloads the refresh already downloaded and pulls the poster and
       # headshot paths out of them.
       - name: Rebuild the image index
-        if: ${{ !inputs.skip_refresh }}
+        if: ${{ !inputs.skip_refresh && steps.refresh.outcome == 'success' }}
         run: python scripts/build_images.py
 
       - name: Ship the snapshot
-        if: ${{ !inputs.skip_refresh }}
+        if: ${{ !inputs.skip_refresh && steps.refresh.outcome == 'success' }}
         run: |
           code=$(curl -sS -o response.json -w '%{http_code}' -X POST \
             --max-time 300 --retry 3 --retry-delay 20 --retry-connrefused \
@@ -85,7 +94,10 @@ jobs:
           cat response.json; echo
           test "$code" = "200"
 
+      # Always: this is the step that keeps the market's date honest, and the
+      # app closes any gap it finds before it marks.
       - name: Reprice
+        if: ${{ always() }}
         run: |
           code=$(curl -sS -o mark.json -w '%{http_code}' -X POST \
             --max-time 300 --retry 3 --retry-delay 20 --retry-connrefused \
@@ -97,7 +109,7 @@ jobs:
       # The refreshed snapshot is also what the static site and the next run
       # build from, so it belongs in the repo rather than only on the volume.
       - name: Commit the snapshot
-        if: ${{ !inputs.skip_refresh }}
+        if: ${{ !inputs.skip_refresh && steps.refresh.outcome == 'success' }}
         run: |
           if git diff --quiet -- data/people.json data/images.json; then
             echo "No change to the snapshot."
@@ -108,3 +120,19 @@ jobs:
           git add data/people.json data/images.json
           git commit -m "Nightly refresh: new credits and awards"
           git push
+
+      - name: Save the fetch cache
+        if: ${{ always() }}
+        uses: actions/cache/save@v4
+        with:
+          path: .cache
+          key: fsx-fetch-${{ github.run_id }}
+
+      # Last, so that a failed refresh still shows up red without having
+      # stopped the repricing above.
+      - name: Report a failed refresh
+        if: ${{ steps.refresh.outcome == 'failure' }}
+        run: |
+          echo "::error::The credit refresh failed. The market was repriced"\
+               " anyway; see the 'Look for new credits' step for the reason."
+          exit 1

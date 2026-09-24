@@ -232,3 +232,42 @@ def test_a_burst_of_new_entries_is_capped():
 
     payload = {"cast": [_entry(f"Film {i}", f"2026-08-{i:02d}") for i in range(1, 21)]}
     assert len(select_new(payload, set(), "2026-05-22", "2026-09-19", 6, False)) == 6
+
+
+def test_a_repeated_roster_line_is_dropped_not_fatal():
+    """roster.txt had "Olivia Wilde" on two lines. The refresh refused to write
+    anything at all because of it, so every nightly run failed from then on
+    and the market went on quoting July 2022."""
+    from fsx.cli import collapse_duplicates
+    from fsx.models import Person
+
+    people = [Person(name="Olivia Wilde", tmdb_id=1),
+              Person(name="Olivia Wilde", tmdb_id=1),
+              Person(name="Greta Lee", tmdb_id=2)]
+    collapsed, clashes = collapse_duplicates(people)
+    assert collapsed == 1 and clashes == []
+    assert [p.name for p in people] == ["Olivia Wilde", "Greta Lee"]
+
+
+def test_two_different_people_sharing_a_name_still_stops_the_write():
+    """One career listed twice is worse than a missing name, so the case that
+    is actually ambiguous is still a refusal rather than a coin toss."""
+    from fsx.cli import collapse_duplicates
+    from fsx.models import Person
+
+    people = [Person(name="Chris Evans", tmdb_id=1),
+              Person(name="Chris Evans", tmdb_id=2)]
+    collapsed, clashes = collapse_duplicates(people)
+    assert collapsed == 0
+    assert clashes and clashes[0][1] == ["1", "2"]
+    assert len(people) == 2
+
+
+def test_accents_do_not_make_a_second_listing():
+    from fsx.cli import collapse_duplicates
+    from fsx.models import Person
+
+    people = [Person(name="Penelope Cruz", tmdb_id=9),
+              Person(name="Penélope Cruz", tmdb_id=9)]
+    collapsed, _ = collapse_duplicates(people)
+    assert collapsed == 1 and len(people) == 1

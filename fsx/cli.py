@@ -223,6 +223,35 @@ def _match_key(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", folded.lower())
 
 
+
+def collapse_duplicates(people: list) -> tuple[int, list[tuple[str, list[str]]]]:
+    """Drop repeated entries in place; report name collisions.
+
+    Two rows for one career is worse on a market than one missing name, so
+    this is the backstop behind the accent-aware matching. An exact duplicate
+    - same name, same TMDB id - is a repeated line in roster.txt and is simply
+    dropped; refusing the whole write over one meant a single typo wedged
+    every nightly run from then on. Two different people who happen to share a
+    name is a real decision, so that still stops and says so.
+    """
+    by_key: dict[str, list] = {}
+    for person in people:
+        by_key.setdefault(_match_key(person.name), []).append(person)
+
+    collapsed, clashes = 0, []
+    for key, group in by_key.items():
+        if len(group) == 1:
+            continue
+        ids = {p.tmdb_id for p in group}
+        if len(ids) == 1:
+            for extra in group[1:]:
+                people.remove(extra)
+            collapsed += len(group) - 1
+        else:
+            clashes.append((key, sorted(str(i) for i in ids)))
+    return collapsed, clashes
+
+
 def cmd_refresh(args) -> int:
     """Look for work that has come out since the snapshot, and only fetch that.
 
@@ -254,6 +283,28 @@ def cmd_refresh(args) -> int:
     if not tmdb.available:
         print("TMDB needs TMDB_READ_ACCESS_TOKEN or TMDB_API_KEY.", file=sys.stderr)
         return 1
+
+    # One call before the other 491. A rejected credential fails every lookup
+    # in the run, and the run then spends two minutes doing it and reports
+    # "nothing new." - so ask TMDB once whether it will talk to us, and say
+    # plainly if it will not. The commonest cause is a v3 API key pasted into
+    # TMDB_READ_ACCESS_TOKEN, which is sent as a bearer token and refused.
+    try:
+        tmdb.get("/configuration", dict(tmdb.auth), "configuration",
+                 max_age_days=1)
+    except Exception as exc:                          # noqa: BLE001
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        print(f"TMDB refused the first call ({type(exc).__name__}"
+              + (f" {status}" if status else "") + ").", file=sys.stderr)
+        if status in (401, 403):
+            which = ("TMDB_READ_ACCESS_TOKEN" if tmdb.token else "TMDB_API_KEY")
+            print(f"  {which} is set but not accepted. The read access token is"
+                  " the long v4 string; a v3 API key goes in TMDB_API_KEY"
+                  " instead.", file=sys.stderr)
+        print("  Nothing was fetched, so the snapshot is unchanged.",
+              file=sys.stderr)
+        return 1
+
     omdb = OMDb()
     wikipedia = None if args.no_wiki else Wikipedia()
     wikidata = None if args.no_wiki else Wikidata()
@@ -273,11 +324,20 @@ def cmd_refresh(args) -> int:
 
     failures: list[str] = []
 
+    reasons: list[str] = []
+
     def attempt(label: str, fn, *a, **kw):
         try:
             return fn(*a, **kw)
         except Exception as exc:                      # noqa: BLE001
             failures.append(f"{label}: {type(exc).__name__}")
+            # The tally splits the label on ":" to group calls of a kind,
+            # which threw the reason away: 491 failures reported as
+            # "credits x491" and not one word about why. Keep the reason.
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            reasons.append(f"{type(exc).__name__}"
+                           + (f" {status}" if status else "")
+                           + f": {str(exc)[:160]}")
             return None
 
     stats = {"omdb": 0, "wikidata_scores": 0, "wikipedia_money": 0, "awards": 0,
@@ -367,22 +427,41 @@ def cmd_refresh(args) -> int:
     if not (added or new_people or award_changes):
         print("nothing new.")
 
+    blind = False
     if failures:
         from collections import Counter
         tally = Counter(f.split(":")[0] for f in failures)
         print(f"{len(failures)} calls failed and were skipped: "
               + ", ".join(f"{k} x{v}" for k, v in tally.most_common()),
               file=sys.stderr)
+        for reason, count in Counter(reasons).most_common(3):
+            print(f"  {count}x {reason}", file=sys.stderr)
+
+        # Every credit lookup failing is not "nothing new" - it is not having
+        # looked. Saying "nothing new." after 491 failures is how a refresh
+        # that has been broken for a week goes unnoticed.
+        checked = sum(1 for f in failures if f.startswith("credits:"))
+        if people and checked >= len(people):
+            blind = True
+            print(f"every credit lookup failed ({checked}); this run saw "
+                  f"nothing, which is not the same as nothing having changed.",
+                  file=sys.stderr)
 
     # Belt and braces on the name matching above: a market with the same
-    # career listed twice is worse than a market missing someone.
-    seen: dict[str, int] = {}
-    for person in people:
-        seen[_match_key(person.name)] = seen.get(_match_key(person.name), 0) + 1
-    dupes = [n for n, count in seen.items() if count > 1]
-    if dupes:
-        print(f"refusing to write: {len(dupes)} duplicated names ({dupes[:5]})",
+    # career listed twice is worse than a market missing someone. An exact
+    # duplicate - same person, same TMDB id, listed twice - is a roster typo
+    # rather than a collision, so collapse it and carry on. Refusing outright
+    # meant one repeated line wedged every nightly run from then on.
+    collapsed, clashes = collapse_duplicates(people)
+    if collapsed:
+        print(f"collapsed {collapsed} exact duplicate "
+              f"{'entry' if collapsed == 1 else 'entries'}.")
+    if clashes:
+        print("refusing to write: different people share a name "
+              + ", ".join(f"{k} ({'/'.join(ids)})" for k, ids in clashes[:5]),
               file=sys.stderr)
+        return 1
+    if blind:
         return 1
 
     if args.dry_run:
